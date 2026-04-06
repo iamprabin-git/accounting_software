@@ -98,7 +98,13 @@ export default function Index({
                                         Reference
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                                        Posted No.
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                                         Status
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                                        Pending age
                                     </th>
                                     <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                                         Lines
@@ -130,12 +136,28 @@ export default function Index({
                                             <td className="px-4 py-3 text-sm text-gray-700">
                                                 {row.reference || '—'}
                                             </td>
+                                            <td className="px-4 py-3 text-sm text-gray-700">
+                                                {row.posted_number ?? '—'}
+                                            </td>
                                             <td className="px-4 py-3 text-sm">
                                                 <span
                                                     className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle(row.status)}`}
                                                 >
                                                     {row.status}
                                                 </span>
+                                                {row.status === 'pending' &&
+                                                row.first_approved_by_name ? (
+                                                    <div className="mt-1 text-xs text-gray-600">
+                                                        First approved by{' '}
+                                                        {row.first_approved_by_name}
+                                                    </div>
+                                                ) : null}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-600">
+                                                {row.status === 'pending' &&
+                                                row.pending_age_days != null
+                                                    ? `${row.pending_age_days} day(s)`
+                                                    : '—'}
                                             </td>
                                             <td className="px-4 py-3 text-sm text-gray-600">
                                                 {row.lines_count}

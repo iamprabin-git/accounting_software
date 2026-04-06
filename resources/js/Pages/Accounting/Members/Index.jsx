@@ -96,6 +96,12 @@ export default function Index({
                                 Register member
                             </Link>
                         )}
+                        <Link
+                            href={route('member-groups.index', companyQuery)}
+                            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition hover:bg-gray-50"
+                        >
+                            Member groups
+                        </Link>
                     </div>
                 </div>
             }

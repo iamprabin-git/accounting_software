@@ -22,7 +22,8 @@ class DatabaseSeeder extends Seeder
         Admin::query()->create([
             'name' => 'Administrator',
             'email' => 'admin@example.com',
-            'password' => Hash::make('password'),
+            // Plain text: Admin model uses 'password' => 'hashed' cast.
+            'password' => 'password',
         ]);
 
         $company = Company::query()->create([

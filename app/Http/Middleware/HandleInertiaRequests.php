@@ -48,6 +48,8 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'status' => $request->session()->get('status'),
                 'error' => $request->session()->get('error'),
+                'posted_journal_id' => $request->session()->get('posted_journal_id'),
+                'balance_warning' => $request->session()->get('balance_warning'),
             ],
             'company_features' => $companyFeatures,
             'current_company_id' => $resolvedCompany?->id,

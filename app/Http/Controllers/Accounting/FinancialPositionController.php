@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Accounting;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesAccountingCompany;
+use App\Http\Controllers\Controller;
 use App\Models\ChartAccount;
 use App\Models\FinancialPosition;
 use App\Models\FinancialPositionAccrual;
@@ -11,6 +11,7 @@ use App\Models\FinancialPositionMovement;
 use App\Models\LoanProduct;
 use App\Models\Member;
 use App\Models\SavingsProduct;
+use App\Models\User;
 use App\Services\FinanceAccrualService;
 use App\Services\FinanceJournalPostingService;
 use Illuminate\Http\JsonResponse;
@@ -18,6 +19,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use InvalidArgumentException;
@@ -245,7 +247,7 @@ class FinancialPositionController extends Controller
         if ($structuredLoan) {
             $principalCents = (int) round(((float) $validated['principal']) * 100);
             if ($principalCents !== 0) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'principal' => __('Product-based loan applications start at zero until the loan is disbursed.'),
                 ]);
             }
@@ -261,7 +263,7 @@ class FinancialPositionController extends Controller
                 ? (int) round(((float) $validated['sanctioned_amount']) * 100)
                 : null;
 
-            DB::transaction(function () use ($request, $company, $validated, $product, $sanctionedCents, $rate) {
+            DB::transaction(function () use ($company, $validated, $product, $sanctionedCents, $rate) {
                 LoanProduct::query()->whereKey($product->id)->lockForUpdate()->first();
 
                 $seq = (int) FinancialPosition::query()
@@ -298,7 +300,7 @@ class FinancialPositionController extends Controller
         if ($structuredSavings) {
             $principalCents = (int) round(((float) $validated['principal']) * 100);
             if ($principalCents !== 0) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     'principal' => __('Product-based savings applications start at zero until the first deposit is posted with a journal entry.'),
                 ]);
             }
@@ -311,7 +313,7 @@ class FinancialPositionController extends Controller
 
             $rate = $validated['annual_interest_rate_percent'] ?? $product->default_annual_interest_rate_percent;
 
-            DB::transaction(function () use ($request, $company, $validated, $product, $rate) {
+            DB::transaction(function () use ($company, $validated, $product, $rate) {
                 SavingsProduct::query()->whereKey($product->id)->lockForUpdate()->first();
 
                 $seq = (int) FinancialPosition::query()
@@ -1234,13 +1236,32 @@ class FinancialPositionController extends Controller
             ]);
         }
 
-        $ledger = $this->validatedLedgerPosting($request, $record->company_id);
+        $memberPersonalAccountId = $this->ensureMemberPersonalChartAccount(
+            $record,
+            forLoan: true,
+            actor: $request->user(),
+        );
+
+        $ledger = $this->validatedLedgerPosting(
+            $request,
+            $record->company_id,
+            requireDebit: false,
+            requireCredit: true,
+        );
+        $ledger['debit_chart_account_id'] = $memberPersonalAccountId;
+
+        if ((int) $ledger['credit_chart_account_id'] === $memberPersonalAccountId) {
+            return back()->withErrors([
+                'credit_chart_account_id' => __('Cash / bank account must be different from the member personal account.'),
+            ]);
+        }
         $memo = __('Loan disbursement :title', ['title' => $record->title]).$this->financeMemberMemoSuffix($record);
         if (! empty($validatedAmount['memo'])) {
             $memo .= ' — '.$validatedAmount['memo'];
         }
 
         $journalService = app(FinanceJournalPostingService::class);
+        $postedJournalId = null;
 
         try {
             DB::transaction(function () use (
@@ -1251,6 +1272,7 @@ class FinancialPositionController extends Controller
                 $memo,
                 $record,
                 $validatedAmount,
+                &$postedJournalId,
             ) {
                 $entry = $journalService->postTwoLineJournal(
                     $record->company_id,
@@ -1264,6 +1286,7 @@ class FinancialPositionController extends Controller
                     $record->member_id,
                     FinancialPosition::CATEGORY_LOAN,
                 );
+                $postedJournalId = (int) $entry->id;
 
                 $record->increment('principal_cents', $add);
                 $record->refresh();
@@ -1283,7 +1306,9 @@ class FinancialPositionController extends Controller
             return back()->withErrors(['ledger' => $e->getMessage()]);
         }
 
-        return back()->with('status', __('Disbursement recorded and posted to the journal.'));
+        return back()
+            ->with('status', __('Disbursement recorded and posted to the journal.'))
+            ->with('posted_journal_id', $postedJournalId);
     }
 
     public function storeInstallment(Request $request, string $category, int $position): RedirectResponse
@@ -1330,13 +1355,32 @@ class FinancialPositionController extends Controller
             ]);
         }
 
-        $ledger = $this->validatedLedgerPosting($request, $record->company_id);
+        $memberPersonalAccountId = $this->ensureMemberPersonalChartAccount(
+            $record,
+            forLoan: true,
+            actor: $request->user(),
+        );
+
+        $ledger = $this->validatedLedgerPosting(
+            $request,
+            $record->company_id,
+            requireDebit: true,
+            requireCredit: false,
+        );
+        $ledger['credit_chart_account_id'] = $memberPersonalAccountId;
+
+        if ((int) $ledger['debit_chart_account_id'] === $memberPersonalAccountId) {
+            return back()->withErrors([
+                'debit_chart_account_id' => __('Cash / bank account must be different from the member personal account.'),
+            ]);
+        }
         $memo = __('Loan installment / principal repayment :title', ['title' => $record->title]).$this->financeMemberMemoSuffix($record);
         if (! empty($validatedAmount['memo'])) {
             $memo .= ' — '.$validatedAmount['memo'];
         }
 
         $journalService = app(FinanceJournalPostingService::class);
+        $postedJournalId = null;
 
         try {
             DB::transaction(function () use (
@@ -1347,6 +1391,7 @@ class FinancialPositionController extends Controller
                 $memo,
                 $record,
                 $validatedAmount,
+                &$postedJournalId,
             ) {
                 $entry = $journalService->postTwoLineJournal(
                     $record->company_id,
@@ -1360,6 +1405,7 @@ class FinancialPositionController extends Controller
                     $record->member_id,
                     FinancialPosition::CATEGORY_LOAN,
                 );
+                $postedJournalId = (int) $entry->id;
 
                 $record->decrement('principal_cents', $sub);
                 $record->refresh();
@@ -1379,7 +1425,9 @@ class FinancialPositionController extends Controller
             return back()->withErrors(['ledger' => $e->getMessage()]);
         }
 
-        return back()->with('status', __('Installment recorded and posted to the journal.'));
+        return back()
+            ->with('status', __('Installment recorded and posted to the journal.'))
+            ->with('posted_journal_id', $postedJournalId);
     }
 
     public function storePenalty(Request $request, string $category, int $position): RedirectResponse
@@ -1420,13 +1468,32 @@ class FinancialPositionController extends Controller
 
         $add = (int) round(((float) $validatedAmount['amount']) * 100);
 
-        $ledger = $this->validatedLedgerPosting($request, $record->company_id);
+        $memberPersonalAccountId = $this->ensureMemberPersonalChartAccount(
+            $record,
+            forLoan: true,
+            actor: $request->user(),
+        );
+
+        $ledger = $this->validatedLedgerPosting(
+            $request,
+            $record->company_id,
+            requireDebit: false,
+            requireCredit: true,
+        );
+        $ledger['debit_chart_account_id'] = $memberPersonalAccountId;
+
+        if ((int) $ledger['credit_chart_account_id'] === $memberPersonalAccountId) {
+            return back()->withErrors([
+                'credit_chart_account_id' => __('Cash / bank account must be different from the member personal account.'),
+            ]);
+        }
         $memo = __('Loan penalty / late charge :title', ['title' => $record->title]).$this->financeMemberMemoSuffix($record);
         if (! empty($validatedAmount['memo'])) {
             $memo .= ' — '.$validatedAmount['memo'];
         }
 
         $journalService = app(FinanceJournalPostingService::class);
+        $postedJournalId = null;
 
         try {
             DB::transaction(function () use (
@@ -1437,6 +1504,7 @@ class FinancialPositionController extends Controller
                 $memo,
                 $record,
                 $validatedAmount,
+                &$postedJournalId,
             ) {
                 $entry = $journalService->postTwoLineJournal(
                     $record->company_id,
@@ -1450,6 +1518,7 @@ class FinancialPositionController extends Controller
                     $record->member_id,
                     FinancialPosition::CATEGORY_LOAN,
                 );
+                $postedJournalId = (int) $entry->id;
 
                 $record->increment('principal_cents', $add);
                 $record->refresh();
@@ -1469,7 +1538,9 @@ class FinancialPositionController extends Controller
             return back()->withErrors(['ledger' => $e->getMessage()]);
         }
 
-        return back()->with('status', __('Penalty recorded and posted to the journal.'));
+        return back()
+            ->with('status', __('Penalty recorded and posted to the journal.'))
+            ->with('posted_journal_id', $postedJournalId);
     }
 
     public function storeStructuredSavingsDeposit(Request $request, string $category, int $position): RedirectResponse
@@ -1510,13 +1581,32 @@ class FinancialPositionController extends Controller
 
         $add = (int) round(((float) $validatedAmount['amount']) * 100);
 
-        $ledger = $this->validatedLedgerPosting($request, $record->company_id);
+        $memberPersonalAccountId = $this->ensureMemberPersonalChartAccount(
+            $record,
+            forLoan: false,
+            actor: $request->user(),
+        );
+
+        $ledger = $this->validatedLedgerPosting(
+            $request,
+            $record->company_id,
+            requireDebit: true,
+            requireCredit: false,
+        );
+        $ledger['credit_chart_account_id'] = $memberPersonalAccountId;
+
+        if ((int) $ledger['debit_chart_account_id'] === $memberPersonalAccountId) {
+            return back()->withErrors([
+                'debit_chart_account_id' => __('Cash / bank account must be different from the member personal account.'),
+            ]);
+        }
         $memo = __('Savings deposit :title', ['title' => $record->title]).$this->financeMemberMemoSuffix($record);
         if (! empty($validatedAmount['memo'])) {
             $memo .= ' — '.$validatedAmount['memo'];
         }
 
         $journalService = app(FinanceJournalPostingService::class);
+        $postedJournalId = null;
 
         try {
             DB::transaction(function () use (
@@ -1527,6 +1617,7 @@ class FinancialPositionController extends Controller
                 $memo,
                 $record,
                 $validatedAmount,
+                &$postedJournalId,
             ) {
                 $entry = $journalService->postTwoLineJournal(
                     $record->company_id,
@@ -1540,6 +1631,7 @@ class FinancialPositionController extends Controller
                     $record->member_id,
                     FinancialPosition::CATEGORY_SAVINGS,
                 );
+                $postedJournalId = (int) $entry->id;
 
                 $record->increment('principal_cents', $add);
                 $record->refresh();
@@ -1559,7 +1651,9 @@ class FinancialPositionController extends Controller
             return back()->withErrors(['ledger' => $e->getMessage()]);
         }
 
-        return back()->with('status', __('Deposit recorded and posted to the journal.'));
+        return back()
+            ->with('status', __('Deposit recorded and posted to the journal.'))
+            ->with('posted_journal_id', $postedJournalId);
     }
 
     public function storeStructuredSavingsWithdrawal(Request $request, string $category, int $position): RedirectResponse
@@ -1606,13 +1700,32 @@ class FinancialPositionController extends Controller
             ]);
         }
 
-        $ledger = $this->validatedLedgerPosting($request, $record->company_id);
+        $memberPersonalAccountId = $this->ensureMemberPersonalChartAccount(
+            $record,
+            forLoan: false,
+            actor: $request->user(),
+        );
+
+        $ledger = $this->validatedLedgerPosting(
+            $request,
+            $record->company_id,
+            requireDebit: false,
+            requireCredit: true,
+        );
+        $ledger['debit_chart_account_id'] = $memberPersonalAccountId;
+
+        if ((int) $ledger['credit_chart_account_id'] === $memberPersonalAccountId) {
+            return back()->withErrors([
+                'credit_chart_account_id' => __('Cash / bank account must be different from the member personal account.'),
+            ]);
+        }
         $memo = __('Savings withdrawal :title', ['title' => $record->title]).$this->financeMemberMemoSuffix($record);
         if (! empty($validatedAmount['memo'])) {
             $memo .= ' — '.$validatedAmount['memo'];
         }
 
         $journalService = app(FinanceJournalPostingService::class);
+        $postedJournalId = null;
 
         try {
             DB::transaction(function () use (
@@ -1623,6 +1736,7 @@ class FinancialPositionController extends Controller
                 $memo,
                 $record,
                 $validatedAmount,
+                &$postedJournalId,
             ) {
                 $entry = $journalService->postTwoLineJournal(
                     $record->company_id,
@@ -1636,6 +1750,7 @@ class FinancialPositionController extends Controller
                     $record->member_id,
                     FinancialPosition::CATEGORY_SAVINGS,
                 );
+                $postedJournalId = (int) $entry->id;
 
                 $record->decrement('principal_cents', $sub);
                 $record->refresh();
@@ -1655,7 +1770,9 @@ class FinancialPositionController extends Controller
             return back()->withErrors(['ledger' => $e->getMessage()]);
         }
 
-        return back()->with('status', __('Withdrawal recorded and posted to the journal.'));
+        return back()
+            ->with('status', __('Withdrawal recorded and posted to the journal.'))
+            ->with('posted_journal_id', $postedJournalId);
     }
 
     public function storeStructuredSavingsAdjustment(Request $request, string $category, int $position): RedirectResponse
@@ -1902,14 +2019,18 @@ class FinancialPositionController extends Controller
     }
 
     /**
-     * @return array{transaction_date: string, debit_chart_account_id: int, credit_chart_account_id: int, reference: ?string}
+     * @return array<string, mixed>
      */
-    private function validatedLedgerPosting(Request $request, int $companyId): array
-    {
+    private function validatedLedgerPosting(
+        Request $request,
+        int $companyId,
+        bool $requireDebit = true,
+        bool $requireCredit = true,
+    ): array {
         return $request->validate([
             'transaction_date' => ['required', 'date'],
             'debit_chart_account_id' => [
-                'required',
+                $requireDebit ? 'required' : 'nullable',
                 'integer',
                 Rule::exists('chart_accounts', 'id')->where(
                     fn ($q) => $q->where('company_id', $companyId)
@@ -1917,7 +2038,7 @@ class FinancialPositionController extends Controller
                 ),
             ],
             'credit_chart_account_id' => [
-                'required',
+                $requireCredit ? 'required' : 'nullable',
                 'integer',
                 'different:debit_chart_account_id',
                 Rule::exists('chart_accounts', 'id')->where(
@@ -1927,6 +2048,52 @@ class FinancialPositionController extends Controller
             ],
             'reference' => ['nullable', 'string', 'max:64'],
         ]);
+    }
+
+    private function ensureMemberPersonalChartAccount(FinancialPosition $record, bool $forLoan, User $actor): int
+    {
+        $accountCode = trim((string) ($record->account_number ?? ''));
+        if ($accountCode === '') {
+            throw new InvalidArgumentException(__('Missing account number for this member finance record.'));
+        }
+
+        $existing = ChartAccount::query()
+            ->where('company_id', $record->company_id)
+            ->where('code', $accountCode)
+            ->first();
+
+        if ($existing !== null) {
+            if ($existing->approval_status !== ChartAccount::STATUS_APPROVED) {
+                $existing->update([
+                    'approval_status' => ChartAccount::STATUS_APPROVED,
+                    'approved_at' => now(),
+                    'approved_by_user_id' => $actor->id,
+                    'approved_by_admin_id' => null,
+                ]);
+            }
+
+            return (int) $existing->id;
+        }
+
+        $memberName = trim((string) ($record->member?->name ?? $record->title));
+        $name = $forLoan
+            ? 'Loan personal '.$memberName
+            : 'Savings personal '.$memberName;
+
+        $created = ChartAccount::query()->create([
+            'company_id' => $record->company_id,
+            'user_id' => $actor->id,
+            'code' => $accountCode,
+            'name' => $name,
+            'type' => $forLoan ? ChartAccount::TYPE_ASSET : ChartAccount::TYPE_LIABILITY,
+            'description' => __('Auto-created member personal account for finance posting.'),
+            'approval_status' => ChartAccount::STATUS_APPROVED,
+            'approved_at' => now(),
+            'approved_by_user_id' => $actor->id,
+            'approved_by_admin_id' => null,
+        ]);
+
+        return (int) $created->id;
     }
 
     /**

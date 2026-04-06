@@ -35,7 +35,7 @@ class StructuredLoanWorkflowTest extends TestCase
         $receivable = ChartAccount::query()->create([
             'company_id' => $company->id,
             'user_id' => $owner->id,
-            'code' => '1300',
+            'code' => '11-0001',
             'name' => 'Loans receivable',
             'type' => ChartAccount::TYPE_ASSET,
             'approval_status' => ChartAccount::STATUS_APPROVED,

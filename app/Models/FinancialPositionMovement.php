@@ -21,6 +21,8 @@ class FinancialPositionMovement extends Model
 
     public const TYPE_PENALTY = 'penalty';
 
+    public const TYPE_INTEREST_RECEIPT = 'interest_receipt';
+
     protected $fillable = [
         'financial_position_id',
         'company_id',

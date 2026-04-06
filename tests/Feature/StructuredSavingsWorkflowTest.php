@@ -35,7 +35,7 @@ class StructuredSavingsWorkflowTest extends TestCase
         $liability = ChartAccount::query()->create([
             'company_id' => $company->id,
             'user_id' => $owner->id,
-            'code' => '2300',
+            'code' => '01-0001',
             'name' => 'Member savings',
             'type' => ChartAccount::TYPE_LIABILITY,
             'approval_status' => ChartAccount::STATUS_APPROVED,

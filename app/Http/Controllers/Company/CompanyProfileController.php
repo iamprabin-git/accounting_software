@@ -8,8 +8,8 @@ use App\Models\Company;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,6 +22,7 @@ class CompanyProfileController extends Controller
         abort_unless($user->isCompany() && $user->company_id, 403);
 
         $company = Company::query()->findOrFail($user->company_id);
+        $company->loadMissing('journalLockUpdatedBy:id,name');
 
         $inventoryAccounts = ChartAccount::query()
             ->where('company_id', $company->id)
@@ -46,6 +47,14 @@ class CompanyProfileController extends Controller
                 'portal_show_payment_details' => (bool) $company->portal_show_payment_details,
                 'logo_url' => $company->logoPublicUrl(),
                 'inventory_chart_account_id' => $company->inventory_chart_account_id,
+                'journal_lock_date' => $company->journal_lock_date?->toDateString(),
+                'journal_lock_reason' => $company->journal_lock_reason,
+                'journal_lock_updated_at' => $company->journal_lock_updated_at?->toIso8601String(),
+                'journal_lock_updated_by_name' => $company->journalLockUpdatedBy?->name,
+                'next_journal_posted_number' => (int) $company->next_journal_posted_number,
+                'dual_approval_threshold' => $company->dual_approval_threshold_cents !== null
+                    ? round(((int) $company->dual_approval_threshold_cents) / 100, 2)
+                    : null,
             ],
             'inventoryAccountOptions' => $inventoryAccounts,
             'staffLoginUrl' => url('/login?company_id='.$company->id),
@@ -79,6 +88,7 @@ class CompanyProfileController extends Controller
                         ->where('type', ChartAccount::TYPE_ASSET)
                 ),
             ],
+            'dual_approval_threshold' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         if ($request->hasFile('logo')) {
@@ -112,6 +122,9 @@ class CompanyProfileController extends Controller
                 ? $request->boolean('portal_show_payment_details')
                 : $company->portal_show_payment_details,
             'inventory_chart_account_id' => $validated['inventory_chart_account_id'] ?? null,
+            'dual_approval_threshold_cents' => isset($validated['dual_approval_threshold']) && $validated['dual_approval_threshold'] !== null && $validated['dual_approval_threshold'] !== ''
+                ? (int) round(((float) $validated['dual_approval_threshold']) * 100)
+                : null,
         ]);
 
         $company->save();

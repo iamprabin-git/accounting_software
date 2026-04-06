@@ -33,6 +33,10 @@ class ReviewResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('reviews')) {
+            return null;
+        }
+
         $c = Review::query()->where('status', Review::STATUS_PENDING)->count();
 
         return $c > 0 ? (string) $c : null;

@@ -1,31 +1,38 @@
 <?php
 
+use App\Http\Controllers\Accounting\AccountingAuditTrailController;
 use App\Http\Controllers\Accounting\AccountingReportController;
+use App\Http\Controllers\Accounting\BankReconciliationController;
 use App\Http\Controllers\Accounting\ChartAccountApprovalController;
 use App\Http\Controllers\Accounting\ChartAccountController;
 use App\Http\Controllers\Accounting\CreditorController;
 use App\Http\Controllers\Accounting\DebtorController;
 use App\Http\Controllers\Accounting\FinancialPositionController;
-use App\Http\Controllers\Accounting\LoanProductController;
-use App\Http\Controllers\Accounting\SavingsProductController;
 use App\Http\Controllers\Accounting\InventoryItemController;
 use App\Http\Controllers\Accounting\JournalApprovalController;
 use App\Http\Controllers\Accounting\JournalEntryController;
+use App\Http\Controllers\Accounting\LoanProductController;
 use App\Http\Controllers\Accounting\MemberController;
+use App\Http\Controllers\Accounting\MemberGroupController;
 use App\Http\Controllers\Accounting\MemberLedgerController;
+use App\Http\Controllers\Accounting\SavingsProductController;
+use App\Http\Controllers\Accounting\TellerDayCloseController;
 use App\Http\Controllers\Accounting\WorkspaceController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Banking\CoreBankingController;
+use App\Http\Controllers\Company\AccountingPeriodController;
+use App\Http\Controllers\Company\CompanyIntegrationController;
+use App\Http\Controllers\Company\CompanyProfileController;
+use App\Http\Controllers\Company\CustomerMessageController;
+use App\Http\Controllers\Company\TeamUserController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\Crm\CrmAccountController;
 use App\Http\Controllers\Crm\CrmActivityController;
 use App\Http\Controllers\Crm\CrmContactController;
 use App\Http\Controllers\Crm\CrmDashboardController;
 use App\Http\Controllers\Crm\CrmOpportunityController;
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Http\Controllers\Company\CompanyProfileController;
-use App\Http\Controllers\Company\CustomerMessageController;
-use App\Http\Controllers\Company\TeamUserController;
-use App\Http\Controllers\Portal\MemberPortalController;
-use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Portal\MemberPortalController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -110,168 +117,184 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:admin,company,st
     });
 
     Route::middleware('company.feature:inventory')->group(function () {
-    Route::get('/inventory', [InventoryItemController::class, 'index'])->name('inventory.index');
-    Route::get('/inventory/create', [InventoryItemController::class, 'create'])->name('inventory.create');
-    Route::post('/inventory', [InventoryItemController::class, 'store'])->name('inventory.store');
-    Route::get('/inventory/{item}', [InventoryItemController::class, 'show'])->whereNumber('item')->name('inventory.show');
-    Route::post('/inventory/{item}/purchase', [InventoryItemController::class, 'recordPurchase'])
-        ->whereNumber('item')
-        ->name('inventory.purchase');
-    Route::post('/inventory/{item}/sale', [InventoryItemController::class, 'recordSale'])
-        ->whereNumber('item')
-        ->name('inventory.sale');
-    Route::get('/inventory/{item}/edit', [InventoryItemController::class, 'edit'])->whereNumber('item')->name('inventory.edit');
-    Route::put('/inventory/{item}', [InventoryItemController::class, 'update'])->whereNumber('item')->name('inventory.update');
-    Route::delete('/inventory/{item}', [InventoryItemController::class, 'destroy'])->whereNumber('item')->name('inventory.destroy');
+        Route::get('/inventory', [InventoryItemController::class, 'index'])->name('inventory.index');
+        Route::get('/inventory/create', [InventoryItemController::class, 'create'])->name('inventory.create');
+        Route::post('/inventory', [InventoryItemController::class, 'store'])->name('inventory.store');
+        Route::get('/inventory/{item}', [InventoryItemController::class, 'show'])->whereNumber('item')->name('inventory.show');
+        Route::post('/inventory/{item}/purchase', [InventoryItemController::class, 'recordPurchase'])
+            ->whereNumber('item')
+            ->name('inventory.purchase');
+        Route::post('/inventory/{item}/sale', [InventoryItemController::class, 'recordSale'])
+            ->whereNumber('item')
+            ->name('inventory.sale');
+        Route::get('/inventory/{item}/edit', [InventoryItemController::class, 'edit'])->whereNumber('item')->name('inventory.edit');
+        Route::put('/inventory/{item}', [InventoryItemController::class, 'update'])->whereNumber('item')->name('inventory.update');
+        Route::delete('/inventory/{item}', [InventoryItemController::class, 'destroy'])->whereNumber('item')->name('inventory.destroy');
     });
 
     Route::middleware('company.feature:debtors_creditors')->group(function () {
-    Route::get('/debtors', [DebtorController::class, 'index'])->name('debtors.index');
-    Route::get('/debtors/create', [DebtorController::class, 'create'])->name('debtors.create');
-    Route::post('/debtors', [DebtorController::class, 'store'])->name('debtors.store');
-    Route::get('/debtors/{debtor}/edit', [DebtorController::class, 'edit'])->whereNumber('debtor')->name('debtors.edit');
-    Route::put('/debtors/{debtor}', [DebtorController::class, 'update'])->whereNumber('debtor')->name('debtors.update');
-    Route::delete('/debtors/{debtor}', [DebtorController::class, 'destroy'])->whereNumber('debtor')->name('debtors.destroy');
+        Route::get('/debtors', [DebtorController::class, 'index'])->name('debtors.index');
+        Route::get('/debtors/create', [DebtorController::class, 'create'])->name('debtors.create');
+        Route::post('/debtors', [DebtorController::class, 'store'])->name('debtors.store');
+        Route::get('/debtors/{debtor}/edit', [DebtorController::class, 'edit'])->whereNumber('debtor')->name('debtors.edit');
+        Route::put('/debtors/{debtor}', [DebtorController::class, 'update'])->whereNumber('debtor')->name('debtors.update');
+        Route::delete('/debtors/{debtor}', [DebtorController::class, 'destroy'])->whereNumber('debtor')->name('debtors.destroy');
 
-    Route::get('/creditors', [CreditorController::class, 'index'])->name('creditors.index');
-    Route::get('/creditors/create', [CreditorController::class, 'create'])->name('creditors.create');
-    Route::post('/creditors', [CreditorController::class, 'store'])->name('creditors.store');
-    Route::get('/creditors/{creditor}/edit', [CreditorController::class, 'edit'])->whereNumber('creditor')->name('creditors.edit');
-    Route::put('/creditors/{creditor}', [CreditorController::class, 'update'])->whereNumber('creditor')->name('creditors.update');
-    Route::delete('/creditors/{creditor}', [CreditorController::class, 'destroy'])->whereNumber('creditor')->name('creditors.destroy');
+        Route::get('/creditors', [CreditorController::class, 'index'])->name('creditors.index');
+        Route::get('/creditors/create', [CreditorController::class, 'create'])->name('creditors.create');
+        Route::post('/creditors', [CreditorController::class, 'store'])->name('creditors.store');
+        Route::get('/creditors/{creditor}/edit', [CreditorController::class, 'edit'])->whereNumber('creditor')->name('creditors.edit');
+        Route::put('/creditors/{creditor}', [CreditorController::class, 'update'])->whereNumber('creditor')->name('creditors.update');
+        Route::delete('/creditors/{creditor}', [CreditorController::class, 'destroy'])->whereNumber('creditor')->name('creditors.destroy');
     });
 
     Route::middleware('company.feature:members')->group(function () {
-    Route::get('/members', [MemberController::class, 'index'])->name('members.index');
-    Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
-    Route::post('/members', [MemberController::class, 'store'])->name('members.store');
-    Route::get('/members/{member}/ledger', [MemberLedgerController::class, 'show'])->whereNumber('member')->name('members.ledger');
-    Route::get('/members/{member}/edit', [MemberController::class, 'edit'])->whereNumber('member')->name('members.edit');
-    Route::put('/members/{member}', [MemberController::class, 'update'])->whereNumber('member')->name('members.update');
-    Route::post('/members/{member}/approve', [MemberController::class, 'approve'])->whereNumber('member')->name('members.approve');
-    Route::post('/members/{member}/reject', [MemberController::class, 'reject'])->whereNumber('member')->name('members.reject');
-    Route::delete('/members/{member}', [MemberController::class, 'destroy'])->whereNumber('member')->name('members.destroy');
+        Route::get('/members', [MemberController::class, 'index'])->name('members.index');
+        Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
+        Route::post('/members', [MemberController::class, 'store'])->name('members.store');
+        Route::get('/members/{member}/ledger', [MemberLedgerController::class, 'show'])->whereNumber('member')->name('members.ledger');
+        Route::get('/members/{member}/edit', [MemberController::class, 'edit'])->whereNumber('member')->name('members.edit');
+        Route::put('/members/{member}', [MemberController::class, 'update'])->whereNumber('member')->name('members.update');
+        Route::post('/members/{member}/approve', [MemberController::class, 'approve'])->whereNumber('member')->name('members.approve');
+        Route::post('/members/{member}/reject', [MemberController::class, 'reject'])->whereNumber('member')->name('members.reject');
+        Route::delete('/members/{member}', [MemberController::class, 'destroy'])->whereNumber('member')->name('members.destroy');
+        Route::get('/member-groups', [MemberGroupController::class, 'index'])->name('member-groups.index');
+        Route::post('/member-groups', [MemberGroupController::class, 'store'])->name('member-groups.store');
+        Route::get('/member-groups/{group}', [MemberGroupController::class, 'show'])->whereNumber('group')->name('member-groups.show');
+        Route::post('/member-groups/{group}/deposit-batches', [MemberGroupController::class, 'postDepositBatch'])
+            ->whereNumber('group')
+            ->name('member-groups.deposit-batches.store');
+        Route::post('/member-groups/{group}/loan-collection-batches', [MemberGroupController::class, 'postLoanCollectionBatch'])
+            ->whereNumber('group')
+            ->name('member-groups.loan-collection-batches.store');
+    });
+
+    Route::middleware(['company.feature:members', 'company.feature:finance'])->group(function () {
+        Route::get('/banking/operations', [CoreBankingController::class, 'operations'])->name('banking.operations');
     });
 
     Route::middleware('company.feature:finance')->group(function () {
-    Route::get('/finance/loan-products', [LoanProductController::class, 'index'])->name('finance.loan-products.index');
-    Route::get('/finance/loan-products/create', [LoanProductController::class, 'create'])->name('finance.loan-products.create');
-    Route::post('/finance/loan-products', [LoanProductController::class, 'store'])->name('finance.loan-products.store');
-    Route::get('/finance/loan-products/{loanProduct}/edit', [LoanProductController::class, 'edit'])->whereNumber('loanProduct')->name('finance.loan-products.edit');
-    Route::put('/finance/loan-products/{loanProduct}', [LoanProductController::class, 'update'])->whereNumber('loanProduct')->name('finance.loan-products.update');
-    Route::delete('/finance/loan-products/{loanProduct}', [LoanProductController::class, 'destroy'])->whereNumber('loanProduct')->name('finance.loan-products.destroy');
+        Route::get('/finance/loan-products', [LoanProductController::class, 'index'])->name('finance.loan-products.index');
+        Route::get('/finance/loan-products/create', [LoanProductController::class, 'create'])->name('finance.loan-products.create');
+        Route::post('/finance/loan-products', [LoanProductController::class, 'store'])->name('finance.loan-products.store');
+        Route::get('/finance/loan-products/{loanProduct}/edit', [LoanProductController::class, 'edit'])->whereNumber('loanProduct')->name('finance.loan-products.edit');
+        Route::put('/finance/loan-products/{loanProduct}', [LoanProductController::class, 'update'])->whereNumber('loanProduct')->name('finance.loan-products.update');
+        Route::delete('/finance/loan-products/{loanProduct}', [LoanProductController::class, 'destroy'])->whereNumber('loanProduct')->name('finance.loan-products.destroy');
 
-    Route::get('/finance/savings-products', [SavingsProductController::class, 'index'])->name('finance.savings-products.index');
-    Route::get('/finance/savings-products/create', [SavingsProductController::class, 'create'])->name('finance.savings-products.create');
-    Route::post('/finance/savings-products', [SavingsProductController::class, 'store'])->name('finance.savings-products.store');
-    Route::get('/finance/savings-products/{savingsProduct}/edit', [SavingsProductController::class, 'edit'])->whereNumber('savingsProduct')->name('finance.savings-products.edit');
-    Route::put('/finance/savings-products/{savingsProduct}', [SavingsProductController::class, 'update'])->whereNumber('savingsProduct')->name('finance.savings-products.update');
-    Route::delete('/finance/savings-products/{savingsProduct}', [SavingsProductController::class, 'destroy'])->whereNumber('savingsProduct')->name('finance.savings-products.destroy');
+        Route::get('/finance/savings-products', [SavingsProductController::class, 'index'])->name('finance.savings-products.index');
+        Route::get('/finance/savings-products/create', [SavingsProductController::class, 'create'])->name('finance.savings-products.create');
+        Route::post('/finance/savings-products', [SavingsProductController::class, 'store'])->name('finance.savings-products.store');
+        Route::get('/finance/savings-products/{savingsProduct}/edit', [SavingsProductController::class, 'edit'])->whereNumber('savingsProduct')->name('finance.savings-products.edit');
+        Route::put('/finance/savings-products/{savingsProduct}', [SavingsProductController::class, 'update'])->whereNumber('savingsProduct')->name('finance.savings-products.update');
+        Route::delete('/finance/savings-products/{savingsProduct}', [SavingsProductController::class, 'destroy'])->whereNumber('savingsProduct')->name('finance.savings-products.destroy');
 
-    Route::get('/finance/account-entry', [FinancialPositionController::class, 'accountEntry'])
-        ->name('finance.account-entry');
-    Route::get('/finance/{category}', [FinancialPositionController::class, 'index'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->name('finance.positions.index');
-    Route::get('/finance/{category}/create', [FinancialPositionController::class, 'create'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->name('finance.positions.create');
-    Route::post('/finance/{category}', [FinancialPositionController::class, 'store'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->name('finance.positions.store');
-    Route::get('/finance/{category}/{position}', [FinancialPositionController::class, 'show'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.show');
-    Route::get('/finance/{category}/{position}/statement', [FinancialPositionController::class, 'statement'])
-        ->whereIn('category', ['loan', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.statement');
-    Route::get('/finance/{category}/{position}/movements-data', [FinancialPositionController::class, 'movementsData'])
-        ->whereIn('category', ['loan', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.movements-data');
-    Route::post('/finance/{category}/{position}/movements/deposit', [FinancialPositionController::class, 'storeDeposit'])
-        ->whereIn('category', ['loan', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.movements.deposit');
-    Route::post('/finance/{category}/{position}/movements/withdraw', [FinancialPositionController::class, 'storeWithdrawal'])
-        ->whereIn('category', ['loan', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.movements.withdraw');
-    Route::post('/finance/{category}/{position}/movements/adjustment', [FinancialPositionController::class, 'storeAdjustment'])
-        ->whereIn('category', ['loan', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.movements.adjustment');
-    Route::post('/finance/{category}/{position}/movements/disburse', [FinancialPositionController::class, 'storeDisbursement'])
-        ->where('category', 'loan')
-        ->whereNumber('position')
-        ->name('finance.positions.movements.disburse');
-    Route::post('/finance/{category}/{position}/movements/installment', [FinancialPositionController::class, 'storeInstallment'])
-        ->where('category', 'loan')
-        ->whereNumber('position')
-        ->name('finance.positions.movements.installment');
-    Route::post('/finance/{category}/{position}/movements/penalty', [FinancialPositionController::class, 'storePenalty'])
-        ->where('category', 'loan')
-        ->whereNumber('position')
-        ->name('finance.positions.movements.penalty');
-    Route::post('/finance/{category}/{position}/loan/approve', [FinancialPositionController::class, 'approveLoanApplication'])
-        ->where('category', 'loan')
-        ->whereNumber('position')
-        ->name('finance.positions.loan.approve');
-    Route::post('/finance/{category}/{position}/loan/reject', [FinancialPositionController::class, 'rejectLoanApplication'])
-        ->where('category', 'loan')
-        ->whereNumber('position')
-        ->name('finance.positions.loan.reject');
-    Route::post('/finance/{category}/{position}/savings/approve', [FinancialPositionController::class, 'approveSavingsApplication'])
-        ->where('category', 'savings')
-        ->whereNumber('position')
-        ->name('finance.positions.savings.approve');
-    Route::post('/finance/{category}/{position}/savings/reject', [FinancialPositionController::class, 'rejectSavingsApplication'])
-        ->where('category', 'savings')
-        ->whereNumber('position')
-        ->name('finance.positions.savings.reject');
-    Route::post('/finance/{category}/{position}/movements/savings-deposit', [FinancialPositionController::class, 'storeStructuredSavingsDeposit'])
-        ->where('category', 'savings')
-        ->whereNumber('position')
-        ->name('finance.positions.movements.savings-deposit');
-    Route::post('/finance/{category}/{position}/movements/savings-withdraw', [FinancialPositionController::class, 'storeStructuredSavingsWithdrawal'])
-        ->where('category', 'savings')
-        ->whereNumber('position')
-        ->name('finance.positions.movements.savings-withdraw');
-    Route::post('/finance/{category}/{position}/movements/savings-adjustment', [FinancialPositionController::class, 'storeStructuredSavingsAdjustment'])
-        ->where('category', 'savings')
-        ->whereNumber('position')
-        ->name('finance.positions.movements.savings-adjustment');
-    Route::post('/finance/{category}/{position}/accruals/sync-year', [FinancialPositionController::class, 'syncAccrualYear'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.accruals.sync-year');
-    Route::post('/finance/{category}/{position}/accruals/manual', [FinancialPositionController::class, 'storeManualAccrual'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.accruals.manual');
-    Route::post('/finance/{category}/{position}/accruals/{accrual}/post-ledger', [FinancialPositionController::class, 'postAccrualToLedger'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->whereNumber('position')
-        ->whereNumber('accrual')
-        ->name('finance.positions.accruals.post-ledger');
-    Route::post('/finance/{category}/{position}/accruals/post-savings-quarter', [FinancialPositionController::class, 'postSavingsQuarterToLedger'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.accruals.post-savings-quarter');
-    Route::get('/finance/{category}/{position}/edit', [FinancialPositionController::class, 'edit'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.edit');
-    Route::put('/finance/{category}/{position}', [FinancialPositionController::class, 'update'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.update');
-    Route::delete('/finance/{category}/{position}', [FinancialPositionController::class, 'destroy'])
-        ->whereIn('category', ['loan', 'investment', 'savings'])
-        ->whereNumber('position')
-        ->name('finance.positions.destroy');
+        Route::get('/finance/account-entry', [FinancialPositionController::class, 'accountEntry'])
+            ->name('finance.account-entry');
+        Route::get('/finance/{category}', [FinancialPositionController::class, 'index'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->name('finance.positions.index');
+        Route::get('/finance/{category}/create', [FinancialPositionController::class, 'create'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->name('finance.positions.create');
+        Route::post('/finance/{category}', [FinancialPositionController::class, 'store'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->name('finance.positions.store');
+        Route::get('/finance/{category}/{position}', [FinancialPositionController::class, 'show'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.show');
+        Route::get('/finance/{category}/{position}/statement', [FinancialPositionController::class, 'statement'])
+            ->whereIn('category', ['loan', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.statement');
+        Route::get('/finance/{category}/{position}/movements-data', [FinancialPositionController::class, 'movementsData'])
+            ->whereIn('category', ['loan', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.movements-data');
+        Route::post('/finance/{category}/{position}/movements/deposit', [FinancialPositionController::class, 'storeDeposit'])
+            ->whereIn('category', ['loan', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.movements.deposit');
+        Route::post('/finance/{category}/{position}/movements/withdraw', [FinancialPositionController::class, 'storeWithdrawal'])
+            ->whereIn('category', ['loan', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.movements.withdraw');
+        Route::post('/finance/{category}/{position}/movements/adjustment', [FinancialPositionController::class, 'storeAdjustment'])
+            ->whereIn('category', ['loan', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.movements.adjustment');
+        Route::post('/finance/{category}/{position}/movements/disburse', [FinancialPositionController::class, 'storeDisbursement'])
+            ->where('category', 'loan')
+            ->whereNumber('position')
+            ->name('finance.positions.movements.disburse');
+        Route::post('/finance/{category}/{position}/movements/installment', [FinancialPositionController::class, 'storeInstallment'])
+            ->where('category', 'loan')
+            ->whereNumber('position')
+            ->name('finance.positions.movements.installment');
+        Route::post('/finance/{category}/{position}/movements/penalty', [FinancialPositionController::class, 'storePenalty'])
+            ->where('category', 'loan')
+            ->whereNumber('position')
+            ->name('finance.positions.movements.penalty');
+        Route::post('/finance/{category}/{position}/loan/approve', [FinancialPositionController::class, 'approveLoanApplication'])
+            ->where('category', 'loan')
+            ->whereNumber('position')
+            ->name('finance.positions.loan.approve');
+        Route::post('/finance/{category}/{position}/loan/reject', [FinancialPositionController::class, 'rejectLoanApplication'])
+            ->where('category', 'loan')
+            ->whereNumber('position')
+            ->name('finance.positions.loan.reject');
+        Route::post('/finance/{category}/{position}/savings/approve', [FinancialPositionController::class, 'approveSavingsApplication'])
+            ->where('category', 'savings')
+            ->whereNumber('position')
+            ->name('finance.positions.savings.approve');
+        Route::post('/finance/{category}/{position}/savings/reject', [FinancialPositionController::class, 'rejectSavingsApplication'])
+            ->where('category', 'savings')
+            ->whereNumber('position')
+            ->name('finance.positions.savings.reject');
+        Route::post('/finance/{category}/{position}/movements/savings-deposit', [FinancialPositionController::class, 'storeStructuredSavingsDeposit'])
+            ->where('category', 'savings')
+            ->whereNumber('position')
+            ->name('finance.positions.movements.savings-deposit');
+        Route::post('/finance/{category}/{position}/movements/savings-withdraw', [FinancialPositionController::class, 'storeStructuredSavingsWithdrawal'])
+            ->where('category', 'savings')
+            ->whereNumber('position')
+            ->name('finance.positions.movements.savings-withdraw');
+        Route::post('/finance/{category}/{position}/movements/savings-adjustment', [FinancialPositionController::class, 'storeStructuredSavingsAdjustment'])
+            ->where('category', 'savings')
+            ->whereNumber('position')
+            ->name('finance.positions.movements.savings-adjustment');
+        Route::post('/finance/{category}/{position}/accruals/sync-year', [FinancialPositionController::class, 'syncAccrualYear'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.accruals.sync-year');
+        Route::post('/finance/{category}/{position}/accruals/manual', [FinancialPositionController::class, 'storeManualAccrual'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.accruals.manual');
+        Route::post('/finance/{category}/{position}/accruals/{accrual}/post-ledger', [FinancialPositionController::class, 'postAccrualToLedger'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->whereNumber('position')
+            ->whereNumber('accrual')
+            ->name('finance.positions.accruals.post-ledger');
+        Route::post('/finance/{category}/{position}/accruals/post-savings-quarter', [FinancialPositionController::class, 'postSavingsQuarterToLedger'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.accruals.post-savings-quarter');
+        Route::get('/finance/{category}/{position}/edit', [FinancialPositionController::class, 'edit'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.edit');
+        Route::put('/finance/{category}/{position}', [FinancialPositionController::class, 'update'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.update');
+        Route::delete('/finance/{category}/{position}', [FinancialPositionController::class, 'destroy'])
+            ->whereIn('category', ['loan', 'investment', 'savings'])
+            ->whereNumber('position')
+            ->name('finance.positions.destroy');
+
+        Route::get('/teller/day-close', [TellerDayCloseController::class, 'create'])->name('teller.day-close.create');
+        Route::post('/teller/day-close', [TellerDayCloseController::class, 'store'])->name('teller.day-close.store');
     });
 
     Route::get('/journals', [JournalEntryController::class, 'index'])->name('journals.index');
@@ -286,6 +309,7 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:admin,company,st
     Route::put('/journals/{journal}', [JournalEntryController::class, 'update'])->whereNumber('journal')->name('journals.update');
     Route::delete('/journals/{journal}', [JournalEntryController::class, 'destroy'])->whereNumber('journal')->name('journals.destroy');
     Route::post('/journals/{journal}/submit', [JournalEntryController::class, 'submit'])->whereNumber('journal')->name('journals.submit');
+    Route::post('/journals/{journal}/reverse', [JournalEntryController::class, 'reverse'])->whereNumber('journal')->name('journals.reverse');
     Route::post('/journals/{journal}/approve', [JournalApprovalController::class, 'approve'])->whereNumber('journal')->name('journals.approve');
     Route::post('/journals/{journal}/reject', [JournalApprovalController::class, 'reject'])->whereNumber('journal')->name('journals.reject');
 
@@ -295,6 +319,27 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:admin,company,st
     Route::get('/reports/balance-sheet', [AccountingReportController::class, 'balanceSheet'])->name('reports.balance-sheet');
     Route::get('/reports/cash-flow', [AccountingReportController::class, 'cashFlow'])->name('reports.cash-flow');
     Route::get('/reports/general-ledger', [AccountingReportController::class, 'generalLedger'])->name('reports.general-ledger');
+    Route::get('/reports/par-aging', [AccountingReportController::class, 'parAging'])->name('reports.par-aging');
+    Route::get('/audit-trail', [AccountingAuditTrailController::class, 'index'])->name('audit-trail.index');
+    Route::post('/audit-trail/verify-now', [AccountingAuditTrailController::class, 'verifyNow'])->name('audit-trail.verify-now');
+    Route::get('/audit-trail/export/csv', [AccountingAuditTrailController::class, 'exportCsv'])->name('audit-trail.export.csv');
+    Route::get('/audit-trail/export/print', [AccountingAuditTrailController::class, 'exportPrintable'])->name('audit-trail.export.print');
+
+    Route::get('/bank-reconciliation', [BankReconciliationController::class, 'index'])->name('bank-reconciliation.index');
+    Route::get('/bank-reconciliation/create', [BankReconciliationController::class, 'create'])->name('bank-reconciliation.create');
+    Route::post('/bank-reconciliation', [BankReconciliationController::class, 'store'])->name('bank-reconciliation.store');
+    Route::get('/bank-reconciliation/{batch}', [BankReconciliationController::class, 'show'])->whereNumber('batch')->name('bank-reconciliation.show');
+    Route::post('/bank-reconciliation/{batch}/match', [BankReconciliationController::class, 'match'])->whereNumber('batch')->name('bank-reconciliation.match');
+    Route::post('/bank-reconciliation/{batch}/auto-match', [BankReconciliationController::class, 'autoMatch'])->whereNumber('batch')->name('bank-reconciliation.auto-match');
+    Route::post('/bank-reconciliation/{batch}/lines/{statementLine}/unmatch', [BankReconciliationController::class, 'unmatch'])
+        ->whereNumber('batch')
+        ->whereNumber('statementLine')
+        ->name('bank-reconciliation.unmatch');
+    Route::post('/bank-reconciliation/{batch}/matches/{match}/remove', [BankReconciliationController::class, 'removeMatch'])
+        ->whereNumber('batch')
+        ->whereNumber('match')
+        ->name('bank-reconciliation.match.remove');
+    Route::post('/bank-reconciliation/fetch-feed', [BankReconciliationController::class, 'fetchFeed'])->name('bank-reconciliation.fetch-feed');
 });
 
 Route::middleware(['auth', 'verified', 'customer.active', 'role:company,staff', 'company.feature:members'])->prefix('company/customer-chat')->name('company.customer-chat.')->group(function () {
@@ -306,6 +351,20 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:company,staff', 
 Route::middleware(['auth', 'verified', 'customer.active', 'role:company'])->group(function () {
     Route::get('/company/profile', [CompanyProfileController::class, 'edit'])->name('company.profile.edit');
     Route::post('/company/profile', [CompanyProfileController::class, 'update'])->name('company.profile.update');
+    Route::post('/company/period/close', [AccountingPeriodController::class, 'close'])->name('company.period.close');
+    Route::post('/company/period/reopen', [AccountingPeriodController::class, 'reopen'])->name('company.period.reopen');
+});
+
+Route::middleware(['auth', 'verified', 'customer.active', 'role:company,admin'])->group(function () {
+    Route::get('/company/integrations', [CompanyIntegrationController::class, 'index'])->name('company.integrations.index');
+    Route::post('/company/integrations/tokens', [CompanyIntegrationController::class, 'storeToken'])->name('company.integrations.tokens.store');
+    Route::delete('/company/integrations/tokens/{token}', [CompanyIntegrationController::class, 'destroyToken'])
+        ->whereNumber('token')
+        ->name('company.integrations.tokens.destroy');
+    Route::post('/company/integrations/webhooks', [CompanyIntegrationController::class, 'storeWebhook'])->name('company.integrations.webhooks.store');
+    Route::delete('/company/integrations/webhooks/{webhook}', [CompanyIntegrationController::class, 'destroyWebhook'])
+        ->whereNumber('webhook')
+        ->name('company.integrations.webhooks.destroy');
 });
 
 Route::middleware(['auth', 'verified', 'customer.active', 'role:company'])->prefix('company/team')->name('company.team.')->group(function () {

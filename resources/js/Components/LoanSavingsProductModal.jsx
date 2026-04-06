@@ -5,7 +5,7 @@ import TextInput from '@/Components/TextInput';
 import { formatDisplayDateTime } from '@/utils/dateDisplay';
 import { moneyFromCents } from '@/utils/money';
 import { useForm, router } from '@inertiajs/react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const VIEWS = {
     MENU: 'menu',
@@ -22,76 +22,16 @@ function todayIsoDate() {
     return new Date().toISOString().slice(0, 10);
 }
 
-function LedgerFields({ accounts, data, setData, errors, prefix = '' }) {
-    const p = (name) => (prefix ? `${prefix}.${name}` : name);
-    const err = (name) => errors[p(name)] ?? errors[name];
+function findMemberAccountByNumber(chartAccounts, accountNumber) {
+    const code = String(accountNumber ?? '').trim().toLowerCase();
+    if (!code) return null;
+
     return (
-        <div className="grid gap-3 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-                <InputLabel value="Transaction date" />
-                <TextInput
-                    type="date"
-                    className="mt-1 block w-full"
-                    value={data.transaction_date}
-                    onChange={(e) => setData('transaction_date', e.target.value)}
-                    required
-                />
-                <InputError message={err('transaction_date')} className="mt-1" />
-            </div>
-            <div>
-                <InputLabel value="Debit account" />
-                <select
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    value={data.debit_chart_account_id}
-                    onChange={(e) =>
-                        setData('debit_chart_account_id', e.target.value)
-                    }
-                    required
-                >
-                    <option value="">Select…</option>
-                    {accounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                            {a.label}
-                        </option>
-                    ))}
-                </select>
-                <InputError
-                    message={err('debit_chart_account_id')}
-                    className="mt-1"
-                />
-            </div>
-            <div>
-                <InputLabel value="Credit account" />
-                <select
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    value={data.credit_chart_account_id}
-                    onChange={(e) =>
-                        setData('credit_chart_account_id', e.target.value)
-                    }
-                    required
-                >
-                    <option value="">Select…</option>
-                    {accounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                            {a.label}
-                        </option>
-                    ))}
-                </select>
-                <InputError
-                    message={err('credit_chart_account_id')}
-                    className="mt-1"
-                />
-            </div>
-            <div className="sm:col-span-2">
-                <InputLabel value="Reference (optional)" />
-                <TextInput
-                    className="mt-1 block w-full"
-                    value={data.reference}
-                    onChange={(e) => setData('reference', e.target.value)}
-                />
-                <InputError message={err('reference')} className="mt-1" />
-            </div>
-        </div>
+        chartAccounts.find((a) =>
+            String(a.label ?? '')
+                .toLowerCase()
+                .startsWith(`${code} —`),
+        ) ?? null
     );
 }
 
@@ -173,6 +113,34 @@ export default function LoanSavingsProductModal({
     const isStructuredSavings =
         category === 'savings' && Boolean(row?.uses_structured_savings);
     const savingsReady = Boolean(row?.savings_operational);
+    const savingsMemberAccount = useMemo(
+        () => findMemberAccountByNumber(chartAccounts, row?.account_number),
+        [chartAccounts, row?.account_number],
+    );
+    const loanMemberAccount = useMemo(
+        () => findMemberAccountByNumber(chartAccounts, row?.account_number),
+        [chartAccounts, row?.account_number],
+    );
+    const cashBankAccounts = useMemo(() => {
+        const withoutMember = chartAccounts.filter(
+            (a) => String(a.id) !== String(savingsMemberAccount?.id ?? ''),
+        );
+        const onlyCashOrBank = withoutMember.filter((a) =>
+            /cash|bank/i.test(String(a.label ?? '')),
+        );
+
+        return onlyCashOrBank.length > 0 ? onlyCashOrBank : withoutMember;
+    }, [chartAccounts, savingsMemberAccount?.id]);
+    const loanCashBankAccounts = useMemo(() => {
+        const withoutMember = chartAccounts.filter(
+            (a) => String(a.id) !== String(loanMemberAccount?.id ?? ''),
+        );
+        const onlyCashOrBank = withoutMember.filter((a) =>
+            /cash|bank/i.test(String(a.label ?? '')),
+        );
+
+        return onlyCashOrBank.length > 0 ? onlyCashOrBank : withoutMember;
+    }, [chartAccounts, loanMemberAccount?.id]);
 
     const loadStatement = useCallback(async () => {
         if (!row?.id) return;
@@ -242,6 +210,43 @@ export default function LoanSavingsProductModal({
             svAdjustForm.setData('company_id', c);
         }
     }, [currentCompanyId, isAdmin, open]);
+
+    useEffect(() => {
+        if (!isStructuredSavings || !savingsReady || !savingsMemberAccount) {
+            return;
+        }
+
+        svDepositForm.setData('credit_chart_account_id', String(savingsMemberAccount.id));
+        if (String(svDepositForm.data.debit_chart_account_id) === String(savingsMemberAccount.id)) {
+            svDepositForm.setData('debit_chart_account_id', '');
+        }
+
+        svWithdrawForm.setData('debit_chart_account_id', String(savingsMemberAccount.id));
+        if (String(svWithdrawForm.data.credit_chart_account_id) === String(savingsMemberAccount.id)) {
+            svWithdrawForm.setData('credit_chart_account_id', '');
+        }
+    }, [isStructuredSavings, savingsReady, savingsMemberAccount?.id, open]);
+
+    useEffect(() => {
+        if (!isStructuredLoan || !loanReady || !loanMemberAccount) {
+            return;
+        }
+
+        disburseForm.setData('debit_chart_account_id', String(loanMemberAccount.id));
+        if (String(disburseForm.data.credit_chart_account_id) === String(loanMemberAccount.id)) {
+            disburseForm.setData('credit_chart_account_id', '');
+        }
+
+        installmentForm.setData('credit_chart_account_id', String(loanMemberAccount.id));
+        if (String(installmentForm.data.debit_chart_account_id) === String(loanMemberAccount.id)) {
+            installmentForm.setData('debit_chart_account_id', '');
+        }
+
+        penaltyForm.setData('debit_chart_account_id', String(loanMemberAccount.id));
+        if (String(penaltyForm.data.credit_chart_account_id) === String(loanMemberAccount.id)) {
+            penaltyForm.setData('credit_chart_account_id', '');
+        }
+    }, [isStructuredLoan, loanReady, loanMemberAccount?.id, open]);
 
     if (!open || !row) {
         return null;
@@ -638,12 +643,81 @@ export default function LoanSavingsProductModal({
                                 }
                             />
                         )}
-                        <LedgerFields
-                            accounts={chartAccounts}
-                            data={disburseForm.data}
-                            setData={disburseForm.setData}
-                            errors={disburseForm.errors}
-                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="sm:col-span-2">
+                                <InputLabel value="Transaction date" />
+                                <TextInput
+                                    type="date"
+                                    className="mt-1 block w-full"
+                                    value={disburseForm.data.transaction_date}
+                                    onChange={(e) =>
+                                        disburseForm.setData('transaction_date', e.target.value)
+                                    }
+                                    required
+                                />
+                                <InputError
+                                    message={disburseForm.errors.transaction_date}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <InputLabel value="Dr account (Member personal)" />
+                                <input
+                                    type="hidden"
+                                    name="debit_chart_account_id"
+                                    value={disburseForm.data.debit_chart_account_id}
+                                />
+                                <TextInput
+                                    className="mt-1 block w-full bg-gray-100"
+                                    value={
+                                        loanMemberAccount?.label ||
+                                        row?.account_number ||
+                                        'Member personal account'
+                                    }
+                                    readOnly
+                                />
+                                <InputError
+                                    message={disburseForm.errors.debit_chart_account_id}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <InputLabel value="Cr account (Cash / Bank)" />
+                                <select
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    value={disburseForm.data.credit_chart_account_id}
+                                    onChange={(e) =>
+                                        disburseForm.setData('credit_chart_account_id', e.target.value)
+                                    }
+                                    required
+                                >
+                                    <option value="">Select cash / bank...</option>
+                                    {loanCashBankAccounts.map((a) => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError
+                                    message={disburseForm.errors.credit_chart_account_id}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <InputLabel value="Reference (optional)" />
+                                <TextInput
+                                    className="mt-1 block w-full"
+                                    value={disburseForm.data.reference}
+                                    onChange={(e) =>
+                                        disburseForm.setData('reference', e.target.value)
+                                    }
+                                />
+                                <InputError
+                                    message={disburseForm.errors.reference}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
                         <div>
                             <InputLabel value="Amount (NPR)" />
                             <TextInput
@@ -666,7 +740,7 @@ export default function LoanSavingsProductModal({
                             />
                         </div>
                         <div>
-                            <InputLabel value="Memo (optional)" />
+                            <InputLabel value="Description (optional)" />
                             <TextInput
                                 className="mt-1 block w-full"
                                 value={disburseForm.data.memo}
@@ -703,12 +777,81 @@ export default function LoanSavingsProductModal({
                                 }
                             />
                         )}
-                        <LedgerFields
-                            accounts={chartAccounts}
-                            data={installmentForm.data}
-                            setData={installmentForm.setData}
-                            errors={installmentForm.errors}
-                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="sm:col-span-2">
+                                <InputLabel value="Transaction date" />
+                                <TextInput
+                                    type="date"
+                                    className="mt-1 block w-full"
+                                    value={installmentForm.data.transaction_date}
+                                    onChange={(e) =>
+                                        installmentForm.setData('transaction_date', e.target.value)
+                                    }
+                                    required
+                                />
+                                <InputError
+                                    message={installmentForm.errors.transaction_date}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <InputLabel value="Dr account (Cash / Bank)" />
+                                <select
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    value={installmentForm.data.debit_chart_account_id}
+                                    onChange={(e) =>
+                                        installmentForm.setData('debit_chart_account_id', e.target.value)
+                                    }
+                                    required
+                                >
+                                    <option value="">Select cash / bank...</option>
+                                    {loanCashBankAccounts.map((a) => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError
+                                    message={installmentForm.errors.debit_chart_account_id}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <InputLabel value="Cr account (Member personal)" />
+                                <input
+                                    type="hidden"
+                                    name="credit_chart_account_id"
+                                    value={installmentForm.data.credit_chart_account_id}
+                                />
+                                <TextInput
+                                    className="mt-1 block w-full bg-gray-100"
+                                    value={
+                                        loanMemberAccount?.label ||
+                                        row?.account_number ||
+                                        'Member personal account'
+                                    }
+                                    readOnly
+                                />
+                                <InputError
+                                    message={installmentForm.errors.credit_chart_account_id}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <InputLabel value="Reference (optional)" />
+                                <TextInput
+                                    className="mt-1 block w-full"
+                                    value={installmentForm.data.reference}
+                                    onChange={(e) =>
+                                        installmentForm.setData('reference', e.target.value)
+                                    }
+                                />
+                                <InputError
+                                    message={installmentForm.errors.reference}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
                         <div>
                             <InputLabel value="Principal payment (NPR)" />
                             <TextInput
@@ -731,7 +874,7 @@ export default function LoanSavingsProductModal({
                             />
                         </div>
                         <div>
-                            <InputLabel value="Memo (optional)" />
+                            <InputLabel value="Description (optional)" />
                             <TextInput
                                 className="mt-1 block w-full"
                                 value={installmentForm.data.memo}
@@ -768,12 +911,87 @@ export default function LoanSavingsProductModal({
                                 }
                             />
                         )}
-                        <LedgerFields
-                            accounts={chartAccounts}
-                            data={penaltyForm.data}
-                            setData={penaltyForm.setData}
-                            errors={penaltyForm.errors}
-                        />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="sm:col-span-2">
+                                <InputLabel value="Transaction date" />
+                                <TextInput
+                                    type="date"
+                                    className="mt-1 block w-full"
+                                    value={penaltyForm.data.transaction_date}
+                                    onChange={(e) =>
+                                        penaltyForm.setData('transaction_date', e.target.value)
+                                    }
+                                    required
+                                />
+                                <InputError
+                                    message={penaltyForm.errors.transaction_date}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <InputLabel value="Dr account (Member personal)" />
+                                <input
+                                    type="hidden"
+                                    name="debit_chart_account_id"
+                                    value={penaltyForm.data.debit_chart_account_id}
+                                />
+                                <TextInput
+                                    className="mt-1 block w-full bg-gray-100"
+                                    value={
+                                        loanMemberAccount?.label ||
+                                        row?.account_number ||
+                                        'Member personal account'
+                                    }
+                                    readOnly
+                                />
+                                <InputError
+                                    message={penaltyForm.errors.debit_chart_account_id}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div>
+                                <InputLabel value="Cr account (Income / Cash / Bank)" />
+                                <select
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    value={penaltyForm.data.credit_chart_account_id}
+                                    onChange={(e) =>
+                                        penaltyForm.setData('credit_chart_account_id', e.target.value)
+                                    }
+                                    required
+                                >
+                                    <option value="">Select account...</option>
+                                    {chartAccounts
+                                        .filter(
+                                            (a) =>
+                                                String(a.id) !==
+                                                String(loanMemberAccount?.id ?? ''),
+                                        )
+                                        .map((a) => (
+                                            <option key={a.id} value={a.id}>
+                                                {a.label}
+                                            </option>
+                                        ))}
+                                </select>
+                                <InputError
+                                    message={penaltyForm.errors.credit_chart_account_id}
+                                    className="mt-1"
+                                />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <InputLabel value="Reference (optional)" />
+                                <TextInput
+                                    className="mt-1 block w-full"
+                                    value={penaltyForm.data.reference}
+                                    onChange={(e) =>
+                                        penaltyForm.setData('reference', e.target.value)
+                                    }
+                                />
+                                <InputError
+                                    message={penaltyForm.errors.reference}
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
                         <div>
                             <InputLabel value="Penalty amount (NPR)" />
                             <TextInput
@@ -796,7 +1014,7 @@ export default function LoanSavingsProductModal({
                             />
                         </div>
                         <div>
-                            <InputLabel value="Memo (optional)" />
+                            <InputLabel value="Description (optional)" />
                             <TextInput
                                 className="mt-1 block w-full"
                                 value={penaltyForm.data.memo}
@@ -835,12 +1053,81 @@ export default function LoanSavingsProductModal({
                                     }
                                 />
                             )}
-                            <LedgerFields
-                                accounts={chartAccounts}
-                                data={svDepositForm.data}
-                                setData={svDepositForm.setData}
-                                errors={svDepositForm.errors}
-                            />
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="sm:col-span-2">
+                                    <InputLabel value="Transaction date" />
+                                    <TextInput
+                                        type="date"
+                                        className="mt-1 block w-full"
+                                        value={svDepositForm.data.transaction_date}
+                                        onChange={(e) =>
+                                            svDepositForm.setData('transaction_date', e.target.value)
+                                        }
+                                        required
+                                    />
+                                    <InputError
+                                        message={svDepositForm.errors.transaction_date}
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <div>
+                                    <InputLabel value="Dr account (Cash / Bank)" />
+                                    <select
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        value={svDepositForm.data.debit_chart_account_id}
+                                        onChange={(e) =>
+                                            svDepositForm.setData('debit_chart_account_id', e.target.value)
+                                        }
+                                        required
+                                    >
+                                        <option value="">Select cash / bank...</option>
+                                        {cashBankAccounts.map((a) => (
+                                            <option key={a.id} value={a.id}>
+                                                {a.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <InputError
+                                        message={svDepositForm.errors.debit_chart_account_id}
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <div>
+                                    <InputLabel value="Cr account (Member personal)" />
+                                    <input
+                                        type="hidden"
+                                        name="credit_chart_account_id"
+                                        value={svDepositForm.data.credit_chart_account_id}
+                                    />
+                                    <TextInput
+                                        className="mt-1 block w-full bg-gray-100"
+                                        value={
+                                            savingsMemberAccount?.label ||
+                                            row?.account_number ||
+                                            'Member personal account'
+                                        }
+                                        readOnly
+                                    />
+                                    <InputError
+                                        message={svDepositForm.errors.credit_chart_account_id}
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <InputLabel value="Reference (optional)" />
+                                    <TextInput
+                                        className="mt-1 block w-full"
+                                        value={svDepositForm.data.reference}
+                                        onChange={(e) =>
+                                            svDepositForm.setData('reference', e.target.value)
+                                        }
+                                    />
+                                    <InputError
+                                        message={svDepositForm.errors.reference}
+                                        className="mt-1"
+                                    />
+                                </div>
+                            </div>
                             <div>
                                 <InputLabel value="Amount (NPR)" />
                                 <TextInput
@@ -863,7 +1150,7 @@ export default function LoanSavingsProductModal({
                                 />
                             </div>
                             <div>
-                                <InputLabel value="Memo (optional)" />
+                                <InputLabel value="Description (optional)" />
                                 <TextInput
                                     className="mt-1 block w-full"
                                     value={svDepositForm.data.memo}
@@ -968,12 +1255,81 @@ export default function LoanSavingsProductModal({
                                     }
                                 />
                             )}
-                            <LedgerFields
-                                accounts={chartAccounts}
-                                data={svWithdrawForm.data}
-                                setData={svWithdrawForm.setData}
-                                errors={svWithdrawForm.errors}
-                            />
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="sm:col-span-2">
+                                    <InputLabel value="Transaction date" />
+                                    <TextInput
+                                        type="date"
+                                        className="mt-1 block w-full"
+                                        value={svWithdrawForm.data.transaction_date}
+                                        onChange={(e) =>
+                                            svWithdrawForm.setData('transaction_date', e.target.value)
+                                        }
+                                        required
+                                    />
+                                    <InputError
+                                        message={svWithdrawForm.errors.transaction_date}
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <div>
+                                    <InputLabel value="Dr account (Member personal)" />
+                                    <input
+                                        type="hidden"
+                                        name="debit_chart_account_id"
+                                        value={svWithdrawForm.data.debit_chart_account_id}
+                                    />
+                                    <TextInput
+                                        className="mt-1 block w-full bg-gray-100"
+                                        value={
+                                            savingsMemberAccount?.label ||
+                                            row?.account_number ||
+                                            'Member personal account'
+                                        }
+                                        readOnly
+                                    />
+                                    <InputError
+                                        message={svWithdrawForm.errors.debit_chart_account_id}
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <div>
+                                    <InputLabel value="Cr account (Cash / Bank)" />
+                                    <select
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        value={svWithdrawForm.data.credit_chart_account_id}
+                                        onChange={(e) =>
+                                            svWithdrawForm.setData('credit_chart_account_id', e.target.value)
+                                        }
+                                        required
+                                    >
+                                        <option value="">Select cash / bank...</option>
+                                        {cashBankAccounts.map((a) => (
+                                            <option key={a.id} value={a.id}>
+                                                {a.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <InputError
+                                        message={svWithdrawForm.errors.credit_chart_account_id}
+                                        className="mt-1"
+                                    />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <InputLabel value="Reference (optional)" />
+                                    <TextInput
+                                        className="mt-1 block w-full"
+                                        value={svWithdrawForm.data.reference}
+                                        onChange={(e) =>
+                                            svWithdrawForm.setData('reference', e.target.value)
+                                        }
+                                    />
+                                    <InputError
+                                        message={svWithdrawForm.errors.reference}
+                                        className="mt-1"
+                                    />
+                                </div>
+                            </div>
                             <div>
                                 <InputLabel value="Amount (NPR)" />
                                 <TextInput
@@ -996,7 +1352,7 @@ export default function LoanSavingsProductModal({
                                 />
                             </div>
                             <div>
-                                <InputLabel value="Memo (optional)" />
+                                <InputLabel value="Description (optional)" />
                                 <TextInput
                                     className="mt-1 block w-full"
                                     value={svWithdrawForm.data.memo}

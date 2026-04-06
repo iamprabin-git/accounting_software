@@ -29,6 +29,16 @@ const cards = [
         desc: 'Posted lines and running balance for one account.',
         href: 'reports.general-ledger',
     },
+    {
+        title: 'Bank reconciliation',
+        desc: 'Import statement CSV and match lines to approved journals.',
+        href: 'bank-reconciliation.index',
+    },
+    {
+        title: 'PAR / loan aging',
+        desc: 'Outstanding loans by days since last installment (portfolio-style).',
+        href: 'reports.par-aging',
+    },
 ];
 
 export default function Index({ companies, currentCompanyId, letterhead }) {

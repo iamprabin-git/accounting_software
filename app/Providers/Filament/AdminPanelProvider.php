@@ -7,6 +7,7 @@ use App\Filament\Resources\CrmAccounts\CrmAccountResource;
 use App\Filament\Resources\CrmActivities\CrmActivityResource;
 use App\Filament\Resources\CrmContacts\CrmContactResource;
 use App\Filament\Resources\CrmOpportunities\CrmOpportunityResource;
+use App\Filament\Resources\PlatformAdmins\PlatformAdminResource;
 use App\Filament\Resources\Reviews\ReviewResource;
 use App\Filament\Resources\Users\UserResource;
 use App\Filament\Widgets\AdminDashboardStatsWidget;
@@ -51,6 +52,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->resources([
                 CompanyResource::class,
+                PlatformAdminResource::class,
                 UserResource::class,
                 CrmAccountResource::class,
                 CrmContactResource::class,

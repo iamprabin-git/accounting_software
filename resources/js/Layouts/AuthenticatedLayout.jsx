@@ -27,16 +27,24 @@ function buildNavSections(
     const finUrl = (cat, ws) =>
         route('finance.positions.index', { category: cat, workspace: ws });
 
+    const mainItems = [
+        {
+            href: route('dashboard'),
+            label: t('nav.dashboard'),
+            active: route().current('dashboard'),
+        },
+    ];
+    if (user.role === 'admin' && user.can_view_reports) {
+        mainItems.push({
+            href: route('company.integrations.index'),
+            label: 'Integrations & API',
+            active: route().current('company.integrations.*'),
+        });
+    }
     sections.push({
         id: 'main',
         title: t('nav.main'),
-        items: [
-            {
-                href: route('dashboard'),
-                label: t('nav.dashboard'),
-                active: route().current('dashboard'),
-            },
-        ],
+        items: mainItems,
     });
 
     if (user.role === 'end_user') {
@@ -85,6 +93,29 @@ function buildNavSections(
                     href: route('finance.account-entry'),
                     label: t('nav.accountNumberEntry'),
                     active: route().current('finance.account-entry'),
+                },
+            ],
+        });
+    }
+
+    if (
+        user.can_edit_accounting &&
+        cf.members &&
+        cf.finance &&
+        cf.core_banking_professional
+    ) {
+        const bankingQ =
+            user.role === 'admin' && currentCompanyId
+                ? { company_id: currentCompanyId }
+                : {};
+        sections.push({
+            id: 'core_banking',
+            title: 'Core banking',
+            items: [
+                {
+                    href: route('banking.operations', bankingQ),
+                    label: 'Operations hub',
+                    active: route().current('banking.operations'),
                 },
             ],
         });
@@ -180,11 +211,18 @@ function buildNavSections(
             );
         }
         if (cf.members) {
-            items.push({
-                href: route('members.index'),
-                label: t('nav.members'),
-                active: route().current('members.*'),
-            });
+            items.push(
+                {
+                    href: route('members.index'),
+                    label: t('nav.members'),
+                    active: route().current('members.*'),
+                },
+                {
+                    href: route('member-groups.index'),
+                    label: 'Member groups',
+                    active: route().current('member-groups.*'),
+                },
+            );
         }
         if (cf.finance) {
             items.push(
@@ -328,6 +366,16 @@ function buildNavSections(
                     href: route('reports.index'),
                     label: t('nav.reports'),
                     active: route().current('reports.*'),
+                },
+                {
+                    href: route('audit-trail.index'),
+                    label: 'Audit trail',
+                    active: route().current('audit-trail.*'),
+                },
+                {
+                    href: route('bank-reconciliation.index'),
+                    label: 'Bank reconciliation',
+                    active: route().current('bank-reconciliation.*'),
                 },
             ],
         });
@@ -592,6 +640,25 @@ export default function AuthenticatedLayout({ header, children }) {
                             <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
                                 <div className="rounded-md bg-green-50 p-4 text-sm text-green-800 dark:bg-green-950 dark:text-green-100">
                                     {flash.status}
+                                    {flash?.posted_journal_id ? (
+                                        <div className="mt-2">
+                                            <Link
+                                                href={route('journals.show', {
+                                                    journal: flash.posted_journal_id,
+                                                    ...(user.role === 'admin' && currentCompanyId
+                                                        ? {
+                                                              company_id:
+                                                                  currentCompanyId,
+                                                          }
+                                                        : {}),
+                                                })}
+                                                className="font-semibold underline"
+                                            >
+                                                View posted journal #
+                                                {flash.posted_journal_id}
+                                            </Link>
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
                         </div>

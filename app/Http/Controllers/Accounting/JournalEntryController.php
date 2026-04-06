@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Accounting;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesAccountingCompany;
+use App\Http\Controllers\Controller;
+use App\Models\AccountingAuditLog;
 use App\Models\ChartAccount;
-use App\Support\MoneyAmount;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Services\AccountingAuditService;
+use App\Support\MoneyAmount;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +30,7 @@ class JournalEntryController extends Controller
 
         $entries = JournalEntry::query()
             ->forCompany($company->id)
-            ->with(['user:id,name', 'approvedBy:id,name'])
+            ->with(['user:id,name', 'approvedBy:id,name', 'firstApprovedBy:id,name'])
             ->withCount('lines')
             ->latest('transaction_date')
             ->latest('id')
@@ -40,11 +42,16 @@ class JournalEntryController extends Controller
                 'reference' => $e->reference,
                 'memo' => $e->memo,
                 'status' => $e->status,
+                'posted_number' => $e->posted_number,
                 'lines_count' => $e->lines_count,
                 'creator_name' => $e->user?->name,
                 'approved_by_name' => $e->approvedBy?->name,
                 'approved_at' => $e->approved_at?->toIso8601String(),
                 'submitted_at' => $e->submitted_at?->toIso8601String(),
+                'pending_age_days' => $e->submitted_at
+                    ? (int) $e->submitted_at->copy()->startOfDay()->diffInDays(now()->startOfDay())
+                    : null,
+                'first_approved_by_name' => $e->firstApprovedBy?->name,
             ]);
 
         return Inertia::render('Accounting/Journals/Index', [
@@ -116,6 +123,20 @@ class JournalEntryController extends Controller
                     'description' => $line['description'],
                 ]);
             }
+
+            app(AccountingAuditService::class)->logForJournal(
+                $entry,
+                'journal.created_draft',
+                $request->user(),
+                [
+                    'after' => [
+                        'status' => $entry->status,
+                        'transaction_date' => $entry->transaction_date?->toDateString(),
+                        'lines_count' => $entry->lines()->count(),
+                    ],
+                ],
+                $request,
+            );
         });
 
         return redirect()->route('journals.index', $this->companyQuery($request))
@@ -128,7 +149,15 @@ class JournalEntryController extends Controller
 
         $journalEntry = JournalEntry::query()
             ->forCompany($company->id)
-            ->with(['lines.chartAccount', 'user:id,name', 'approvedBy:id,name'])
+            ->with([
+                'lines.chartAccount',
+                'user:id,name',
+                'approvedBy:id,name',
+                'firstApprovedBy:id,name',
+                'reversalOf:id',
+                'reversalEntry:id,reversal_of_journal_entry_id',
+                'approvalComments.user:id,name',
+            ])
             ->findOrFail($journal);
 
         $this->authorize('view', $journalEntry);
@@ -140,10 +169,34 @@ class JournalEntryController extends Controller
             'can_approve' => $request->user()->can('approve', $journalEntry),
             'can_reject' => $request->user()->can('reject', $journalEntry),
             'can_delete' => $request->user()->can('delete', $journalEntry),
+            'can_reverse' => $request->user()->can('create', JournalEntry::class),
             'printMode' => $request->boolean('print'),
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
             'letterhead' => $this->companyLetterhead($company),
+            'audit_logs' => AccountingAuditLog::query()
+                ->where('company_id', $company->id)
+                ->where('journal_entry_id', $journalEntry->id)
+                ->with('user:id,name')
+                ->latest('id')
+                ->limit(10)
+                ->get()
+                ->map(fn (AccountingAuditLog $log) => [
+                    'action' => $log->action,
+                    'actor_name' => $log->user?->name ?? 'System',
+                    'metadata' => $log->metadata ?? [],
+                    'created_at' => $log->created_at?->toIso8601String(),
+                ])
+                ->all(),
+            'approval_comments' => $journalEntry->approvalComments
+                ->sortByDesc('id')
+                ->take(20)
+                ->map(fn ($c) => [
+                    'action' => $c->action,
+                    'comment' => $c->comment,
+                    'actor_name' => $c->user?->name ?? 'System',
+                    'created_at' => $c->created_at?->toIso8601String(),
+                ])->values()->all(),
         ]);
     }
 
@@ -157,6 +210,15 @@ class JournalEntryController extends Controller
             ->findOrFail($journal);
 
         $this->authorize('update', $journalEntry);
+
+        if ($journalEntry->isApproved()) {
+            return redirect()->route('journals.show', array_merge(
+                ['journal' => $journalEntry->id],
+                $this->companyQuery($request),
+            ))->withErrors([
+                'update' => __('Approved journals are immutable. Post a reversing journal, then re-post with corrections.'),
+            ]);
+        }
 
         return Inertia::render('Accounting/Journals/Edit', [
             'journal' => $this->journalPayload($journalEntry),
@@ -180,7 +242,12 @@ class JournalEntryController extends Controller
 
         $validated = $this->validatedEntryPayload($request, $company->id);
 
-        DB::transaction(function () use ($journalEntry, $validated) {
+        DB::transaction(function () use ($journalEntry, $validated, $request) {
+            $before = [
+                'reference' => $journalEntry->reference,
+                'memo' => $journalEntry->memo,
+                'transaction_date' => $journalEntry->transaction_date?->toDateString(),
+            ];
             $journalEntry->update([
                 'reference' => $validated['reference'],
                 'memo' => $validated['memo'],
@@ -197,6 +264,21 @@ class JournalEntryController extends Controller
                     'description' => $line['description'],
                 ]);
             }
+
+            app(AccountingAuditService::class)->logForJournal(
+                $journalEntry,
+                'journal.updated',
+                $request->user(),
+                [
+                    'before' => $before,
+                    'after' => [
+                        'reference' => $journalEntry->reference,
+                        'memo' => $journalEntry->memo,
+                        'transaction_date' => $journalEntry->transaction_date?->toDateString(),
+                    ],
+                ],
+                $request,
+            );
         });
 
         return redirect()->route('journals.show', array_merge(
@@ -216,6 +298,28 @@ class JournalEntryController extends Controller
             ->findOrFail($journal);
 
         $this->authorize('delete', $journalEntry);
+
+        if ($journalEntry->isApproved()) {
+            return redirect()->route('journals.show', array_merge(
+                ['journal' => $journalEntry->id],
+                $this->companyQuery($request),
+            ))->withErrors([
+                'delete' => __('Approved journals are immutable. Use a reversing journal instead of deleting.'),
+            ]);
+        }
+
+        app(AccountingAuditService::class)->logForJournal(
+            $journalEntry,
+            'journal.deleted',
+            $request->user(),
+            [
+                'before' => [
+                    'status' => $journalEntry->status,
+                    'transaction_date' => $journalEntry->transaction_date?->toDateString(),
+                ],
+            ],
+            $request,
+        );
 
         $journalEntry->delete();
 
@@ -250,10 +354,105 @@ class JournalEntryController extends Controller
             'submitted_at' => now(),
         ]);
 
+        app(AccountingAuditService::class)->logForJournal(
+            $journalEntry,
+            'journal.submitted',
+            $request->user(),
+            [
+                'after' => [
+                    'status' => $journalEntry->status,
+                    'submitted_at' => $journalEntry->submitted_at?->toIso8601String(),
+                ],
+            ],
+            $request,
+        );
+
         return redirect()->route('journals.show', array_merge(
             ['journal' => $journalEntry->id],
             $this->companyQuery($request),
         ))->with('status', __('Submitted for approval.'));
+    }
+
+    public function reverse(Request $request, int $journal): RedirectResponse
+    {
+        $this->authorize('create', JournalEntry::class);
+        $this->validateAdminCompanySelection($request);
+
+        $company = $this->accountingCompany($request);
+
+        $journalEntry = JournalEntry::query()
+            ->forCompany($company->id)
+            ->with(['lines', 'reversalEntry'])
+            ->findOrFail($journal);
+
+        $this->authorize('view', $journalEntry);
+
+        if (! $journalEntry->isApproved()) {
+            return redirect()->route('journals.show', array_merge(
+                ['journal' => $journalEntry->id],
+                $this->companyQuery($request),
+            ))->withErrors([
+                'reverse' => __('Only approved journals can be reversed.'),
+            ]);
+        }
+
+        if ($journalEntry->reversalEntry !== null) {
+            return redirect()->route('journals.show', array_merge(
+                ['journal' => $journalEntry->id],
+                $this->companyQuery($request),
+            ))->withErrors([
+                'reverse' => __('This journal already has a reversal entry.'),
+            ]);
+        }
+
+        $newJournalId = null;
+
+        DB::transaction(function () use ($request, $journalEntry, &$newJournalId) {
+            $reversal = JournalEntry::query()->create([
+                'company_id' => $journalEntry->company_id,
+                'member_id' => $journalEntry->member_id,
+                'finance_category' => $journalEntry->finance_category,
+                'user_id' => $request->user()->id,
+                'reference' => $journalEntry->reference
+                    ? 'REV-'.$journalEntry->reference
+                    : 'REV-J'.$journalEntry->id,
+                'memo' => __('Reversal of journal #:id', ['id' => $journalEntry->id]),
+                'transaction_date' => now()->toDateString(),
+                'status' => JournalEntry::STATUS_DRAFT,
+                'reversal_of_journal_entry_id' => $journalEntry->id,
+            ]);
+
+            foreach ($journalEntry->lines as $line) {
+                $reversal->lines()->create([
+                    'chart_account_id' => $line->chart_account_id,
+                    'debit_cents' => (int) $line->credit_cents,
+                    'credit_cents' => (int) $line->debit_cents,
+                    'description' => $line->description,
+                ]);
+            }
+
+            app(AccountingAuditService::class)->logForJournal(
+                $journalEntry,
+                'journal.reversal_created',
+                $request->user(),
+                ['reversal_journal_entry_id' => $reversal->id],
+                $request,
+            );
+            app(AccountingAuditService::class)->logForJournal(
+                $reversal,
+                'journal.created_reversal_draft',
+                $request->user(),
+                ['source_journal_entry_id' => $journalEntry->id],
+                $request,
+            );
+
+            $newJournalId = (int) $reversal->id;
+        });
+
+        return redirect()->route('journals.show', array_merge(
+            ['journal' => $newJournalId],
+            $this->companyQuery($request),
+        ))->with('status', __('Reversal draft created. Review and submit for approval.'));
     }
 
     private function validateAdminCompanySelection(Request $request): void
@@ -309,10 +508,18 @@ class JournalEntryController extends Controller
             'reference' => $journalEntry->reference,
             'memo' => $journalEntry->memo,
             'status' => $journalEntry->status,
+            'posted_number' => $journalEntry->posted_number,
+            'reversal_of_journal_entry_id' => $journalEntry->reversal_of_journal_entry_id,
+            'reversal_journal_entry_id' => $journalEntry->reversalEntry?->id,
             'creator_name' => $journalEntry->user?->name,
             'approved_by_name' => $journalEntry->approvedBy?->name,
+            'first_approved_by_name' => $journalEntry->firstApprovedBy?->name,
+            'first_approved_at' => $journalEntry->first_approved_at?->toIso8601String(),
             'approved_at' => $journalEntry->approved_at?->toIso8601String(),
             'submitted_at' => $journalEntry->submitted_at?->toIso8601String(),
+            'pending_age_days' => $journalEntry->submitted_at
+                ? (int) $journalEntry->submitted_at->copy()->startOfDay()->diffInDays(now()->startOfDay())
+                : null,
             'lines' => $journalEntry->lines->map(fn (JournalLine $line) => [
                 'id' => $line->id,
                 'chart_account_id' => $line->chart_account_id,
@@ -359,7 +566,7 @@ class JournalEntryController extends Controller
             $c = MoneyAmount::numericInputToCents($line['credit'] ?? 0);
 
             if (($d > 0 && $c > 0) || ($d === 0 && $c === 0)) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     "lines.$i.debit" => __('Each line must have either a debit or a credit amount (not both).'),
                 ]);
             }
@@ -376,7 +583,7 @@ class JournalEntryController extends Controller
         }
 
         if ($totalDebit !== $totalCredit || $totalDebit === 0) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'lines' => __('Total debits must equal total credits and cannot be zero.'),
             ]);
         }
@@ -394,10 +601,21 @@ class JournalEntryController extends Controller
         $this->authorize('create', JournalEntry::class);
 
         $company = $this->accountingCompany($request);
+        $defaultCashAccountId = $this->defaultCashAccountId($company->id);
+        $defaultCashAccountLabel = null;
+
+        if ($defaultCashAccountId !== null) {
+            $defaultCashAccountLabel = ChartAccount::query()
+                ->where('company_id', $company->id)
+                ->whereKey($defaultCashAccountId)
+                ->value(DB::raw("CONCAT(code, ' - ', name)"));
+        }
 
         return Inertia::render('Accounting/Journals/CashEntryCreate', [
             'mode' => $direction,
             'accounts' => $this->chartAccountOptions($company->id),
+            'defaultCashAccountId' => $defaultCashAccountId,
+            'defaultCashAccountLabel' => $defaultCashAccountLabel,
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
         ]);
@@ -430,6 +648,18 @@ class JournalEntryController extends Controller
             'lines.*.amount' => ['required', 'numeric', 'min:0.01'],
             'lines.*.description' => ['nullable', 'string', 'max:255'],
         ]);
+
+        if (in_array($direction, ['in', 'out'], true)) {
+            $defaultCashAccountId = $this->defaultCashAccountId($company->id);
+
+            if ($defaultCashAccountId === null) {
+                throw ValidationException::withMessages([
+                    'cash_chart_account_id' => __('Set up an approved "Cash in Hand" account first.'),
+                ]);
+            }
+
+            $validated['cash_chart_account_id'] = $defaultCashAccountId;
+        }
 
         $cashId = (int) $validated['cash_chart_account_id'];
 
@@ -515,6 +745,20 @@ class JournalEntryController extends Controller
             foreach ($linesForDb as $line) {
                 $entry->lines()->create($line);
             }
+
+            app(AccountingAuditService::class)->logForJournal(
+                $entry,
+                $direction === 'in' ? 'journal.cash_in_created_draft' : 'journal.cash_out_created_draft',
+                $request->user(),
+                [
+                    'after' => [
+                        'status' => $entry->status,
+                        'direction' => $direction,
+                        'transaction_date' => $entry->transaction_date?->toDateString(),
+                    ],
+                ],
+                $request,
+            );
         });
 
         $statusMsg = $direction === 'in'
@@ -523,5 +767,25 @@ class JournalEntryController extends Controller
 
         return redirect()->route('journals.index', $this->companyQuery($request))
             ->with('status', $statusMsg);
+    }
+
+    private function defaultCashAccountId(int $companyId): ?int
+    {
+        $base = ChartAccount::query()
+            ->where('company_id', $companyId)
+            ->where('approval_status', ChartAccount::STATUS_APPROVED)
+            ->where('type', ChartAccount::TYPE_ASSET);
+
+        return (clone $base)
+            ->whereRaw('LOWER(name) = ?', ['cash in hand'])
+            ->value('id')
+            ?? (clone $base)
+                ->whereRaw('LOWER(name) LIKE ?', ['%cash in hand%'])
+                ->value('id')
+            ?? (clone $base)
+                ->whereRaw('LOWER(name) LIKE ?', ['%cash%'])
+                ->orderBy('code')
+                ->value('id')
+            ?? $base->orderBy('code')->value('id');
     }
 }

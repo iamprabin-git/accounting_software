@@ -90,11 +90,30 @@ class JournalEntryPolicy
             return false;
         }
 
+        if (
+            $journalEntry->first_approved_by_user_id !== null
+            && (int) $journalEntry->first_approved_by_user_id === (int) $user->id
+        ) {
+            return false;
+        }
+
         return $journalEntry->isPending();
     }
 
     public function reject(User|Admin $user, JournalEntry $journalEntry): bool
     {
-        return $this->approve($user, $journalEntry);
+        if ($user instanceof Admin) {
+            return $journalEntry->isPending();
+        }
+
+        if (! $user->canApproveJournalEntries()) {
+            return false;
+        }
+
+        if (! $user->isAdmin() && $user->company_id !== $journalEntry->company_id) {
+            return false;
+        }
+
+        return $journalEntry->isPending();
     }
 }

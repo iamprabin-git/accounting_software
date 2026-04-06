@@ -16,6 +16,8 @@ const emptyLine = () => ({
 export default function CashEntryCreate({
     mode,
     accounts,
+    defaultCashAccountId = null,
+    defaultCashAccountLabel = null,
     companies,
     currentCompanyId,
 }) {
@@ -24,7 +26,8 @@ export default function CashEntryCreate({
     const isAdmin = user.role === 'admin';
 
     const { data, setData, post, processing, errors } = useForm({
-        cash_chart_account_id: '',
+        cash_chart_account_id:
+            defaultCashAccountId != null ? String(defaultCashAccountId) : '',
         reference: '',
         memo: '',
         transaction_date: new Date().toISOString().slice(0, 10),
@@ -37,6 +40,12 @@ export default function CashEntryCreate({
             setData('company_id', currentCompanyId);
         }
     }, [currentCompanyId, isAdmin, setData]);
+
+    useEffect(() => {
+        if (defaultCashAccountId != null) {
+            setData('cash_chart_account_id', String(defaultCashAccountId));
+        }
+    }, [defaultCashAccountId, setData]);
 
     const counterpartAccounts = useMemo(() => {
         const id = data.cash_chart_account_id;
@@ -171,25 +180,46 @@ export default function CashEntryCreate({
                                 htmlFor="cash_chart_account_id"
                                 value="Cash in hand (or bank) account"
                             />
-                            <select
-                                id="cash_chart_account_id"
-                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                value={data.cash_chart_account_id}
-                                onChange={(e) =>
-                                    setData(
-                                        'cash_chart_account_id',
-                                        e.target.value,
-                                    )
-                                }
-                                required
-                            >
-                                <option value="">Select cash / bank account…</option>
-                                {accounts.map((a) => (
-                                    <option key={a.id} value={a.id}>
-                                        {a.label}
+                            {defaultCashAccountId != null ? (
+                                <>
+                                    <input
+                                        type="hidden"
+                                        name="cash_chart_account_id"
+                                        value={data.cash_chart_account_id}
+                                    />
+                                    <TextInput
+                                        id="cash_chart_account_id"
+                                        className="mt-1 block w-full bg-gray-100"
+                                        value={
+                                            defaultCashAccountLabel ||
+                                            'Cash in Hand'
+                                        }
+                                        readOnly
+                                    />
+                                </>
+                            ) : (
+                                <select
+                                    id="cash_chart_account_id"
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    value={data.cash_chart_account_id}
+                                    onChange={(e) =>
+                                        setData(
+                                            'cash_chart_account_id',
+                                            e.target.value,
+                                        )
+                                    }
+                                    required
+                                >
+                                    <option value="">
+                                        Select cash / bank account...
                                     </option>
-                                ))}
-                            </select>
+                                    {accounts.map((a) => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
                             <InputError
                                 message={errors.cash_chart_account_id}
                                 className="mt-2"

@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 
 class Company extends Model
 {
@@ -32,6 +34,12 @@ class Company extends Model
         'portal_show_payment_details',
         'logo_path',
         'inventory_chart_account_id',
+        'journal_lock_date',
+        'journal_lock_reason',
+        'journal_lock_updated_by_user_id',
+        'journal_lock_updated_at',
+        'next_journal_posted_number',
+        'dual_approval_threshold_cents',
     ];
 
     protected function casts(): array
@@ -40,7 +48,21 @@ class Company extends Model
             'portal_show_payment_details' => 'boolean',
             'feature_inventory_enabled' => 'boolean',
             'feature_members_enabled' => 'boolean',
+            'journal_lock_date' => 'date',
+            'journal_lock_updated_at' => 'datetime',
+            'dual_approval_threshold_cents' => 'integer',
         ];
+    }
+
+    public function isJournalDateLocked(string|CarbonInterface $date): bool
+    {
+        if (! $this->journal_lock_date) {
+            return false;
+        }
+
+        $txnDate = $date instanceof CarbonInterface ? $date : Carbon::parse($date);
+
+        return $txnDate->toDateString() <= $this->journal_lock_date->toDateString();
     }
 
     /**
@@ -142,6 +164,8 @@ class Company extends Model
             'debtors_creditors' => $this->allowsDebtorsCreditors(),
             'finance' => $this->allowsFinanceSuite(),
             'crm' => $this->allowsCrm(),
+            /** Unified hub: members + finance (Enterprise with members on). */
+            'core_banking_professional' => $this->allowsFinanceSuite() && $this->allowsMembersModule(),
         ];
     }
 
@@ -188,6 +212,11 @@ class Company extends Model
     public function inventoryChartAccount(): BelongsTo
     {
         return $this->belongsTo(ChartAccount::class, 'inventory_chart_account_id');
+    }
+
+    public function journalLockUpdatedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'journal_lock_updated_by_user_id');
     }
 
     /**

@@ -91,6 +91,11 @@ class Member extends Model
         return $this->hasMany(JournalEntry::class, 'member_id');
     }
 
+    public function groupMemberships(): HasMany
+    {
+        return $this->hasMany(MemberGroupMember::class);
+    }
+
     public function isApproved(): bool
     {
         return $this->status === self::STATUS_APPROVED;

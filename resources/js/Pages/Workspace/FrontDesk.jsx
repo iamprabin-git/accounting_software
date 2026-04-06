@@ -100,6 +100,11 @@ export default function FrontDesk({ companies, currentCompanyId }) {
                             description="Look up by account number for deposits, withdrawals, statements, and adjustments."
                             href={route('finance.account-entry', companyQ)}
                         />
+                        <Card
+                            title="Teller day close"
+                            description="Record cash float, counted balance, and optional expected cash for the day."
+                            href={route('teller.day-close.create', companyQ)}
+                        />
                         {user.can_register_members && (
                             <Card
                                 title="Register member"

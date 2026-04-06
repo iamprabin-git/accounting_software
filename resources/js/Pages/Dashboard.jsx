@@ -9,8 +9,15 @@ import {
     CardTitle,
 } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, usePage } from '@inertiajs/react';
-import { BarChart3, BookOpen, Landmark, MessageCircle } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import {
+    BarChart3,
+    BookOpen,
+    Building2,
+    Landmark,
+    MessageCircle,
+    ShieldCheck,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const REPORT_ROUTE_NAMES = {
@@ -162,6 +169,118 @@ function FinancialRatiosSection({ financialRatios }) {
     );
 }
 
+function formatShortDate(iso) {
+    if (!iso) {
+        return '—';
+    }
+    try {
+        const d = new Date(iso);
+        return d.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+        });
+    } catch {
+        return '—';
+    }
+}
+
+function AuditIntegrityTrendSection({ auditIntegrityTrend }) {
+    if (!auditIntegrityTrend) {
+        return null;
+    }
+    const { points, admin_company_id: adminCompanyId } = auditIntegrityTrend;
+    const trailParams = adminCompanyId ? { company_id: adminCompanyId } : {};
+
+    return (
+        <Card className="border-slate-200/90 shadow-sm dark:border-slate-800">
+            <CardHeader>
+                <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                    <CardTitle className="text-base">
+                        Audit integrity (last 7 nights)
+                    </CardTitle>
+                </div>
+                <CardDescription>
+                    Nightly chain verification from the scheduler (dots above).
+                    Manual checks are logged on the audit trail and are not part of
+                    this 7-night timeline.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {!points?.length ? (
+                    <p className="text-sm text-muted-foreground">
+                        No nightly checks recorded yet. After the scheduler runs
+                        audits:verify-integrity, results appear here.
+                    </p>
+                ) : (
+                    <div className="overflow-x-auto pb-1">
+                        <div className="flex min-w-max items-end gap-0 px-1">
+                            {points.map((p, i) => (
+                                <div
+                                    key={`${p.created_at ?? ''}-${p.action}-${i}`}
+                                    className="flex flex-1 flex-col items-center gap-2"
+                                    style={{ minWidth: '4.5rem' }}
+                                >
+                                    <span
+                                        className="h-3 w-3 shrink-0 rounded-full ring-2 ring-background"
+                                        title={
+                                            p.pass
+                                                ? 'Pass'
+                                                : 'Fail'
+                                        }
+                                        style={{
+                                            backgroundColor: p.pass
+                                                ? 'rgb(22 163 74)'
+                                                : 'rgb(220 38 38)',
+                                        }}
+                                    />
+                                    <span className="text-center text-[10px] leading-tight text-muted-foreground tabular-nums">
+                                        {formatShortDate(p.created_at)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                            <span className="inline-flex items-center gap-1.5">
+                                <span
+                                    className="h-2 w-2 rounded-full bg-green-600"
+                                    aria-hidden
+                                />
+                                Pass
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span
+                                    className="h-2 w-2 rounded-full bg-red-600"
+                                    aria-hidden
+                                />
+                                Fail
+                            </span>
+                        </div>
+                    </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        type="button"
+                        size="sm"
+                        onClick={() =>
+                            router.post(
+                                route('audit-trail.verify-now', trailParams),
+                            )
+                        }
+                    >
+                        Verify now
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={route('audit-trail.index', trailParams)}>
+                            Open audit trail
+                        </Link>
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 function portalHint(state, t) {
     if (state === 'ok') {
         return null;
@@ -174,6 +293,9 @@ export default function Dashboard({
     readOnly,
     endUserPortal,
     financialRatios,
+    approvalSla,
+    auditIntegrityAlert,
+    auditIntegrityTrend,
 }) {
     const { t } = useTranslation();
     const page = usePage();
@@ -333,11 +455,78 @@ export default function Dashboard({
 
             <div className="py-10">
                 <div className="mx-auto max-w-7xl space-y-8 sm:px-6 lg:px-8">
+                    {auditIntegrityAlert ? (
+                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-100">
+                            <p className="font-semibold">
+                                Audit integrity alert
+                            </p>
+                            <p className="mt-1">
+                                Last check failed (
+                                {auditIntegrityAlert.reason || 'unknown'}). First
+                                broken event:{' '}
+                                {auditIntegrityAlert.first_broken_event_id ??
+                                    'n/a'}
+                                .
+                            </p>
+                            <div className="mt-2">
+                                <Button size="sm" variant="outline" asChild>
+                                    <Link
+                                        href={route('audit-trail.index', {
+                                            company_id:
+                                                auditIntegrityAlert.admin_company_id ??
+                                                undefined,
+                                        })}
+                                    >
+                                        Open audit trail
+                                    </Link>
+                                </Button>
+                            </div>
+                        </div>
+                    ) : null}
                     {readOnly && (
                         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">
                             {t('dashboard.readOnly')}
                         </div>
                     )}
+                    {companyFeatures?.core_banking_professional &&
+                    user.can_edit_accounting ? (
+                        <Card className="border-indigo-200/80 bg-gradient-to-r from-indigo-50/90 to-white dark:border-indigo-900/40 dark:from-indigo-950/50 dark:to-slate-950">
+                            <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">
+                                    <Building2 className="h-5 w-5" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <CardTitle className="text-base">
+                                        Core banking (professional)
+                                    </CardTitle>
+                                    <CardDescription className="mt-1">
+                                        Unified hub for members, deposits, loans,
+                                        group operations, journals, and treasury.
+                                    </CardDescription>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <Button asChild>
+                                    <Link
+                                        href={route(
+                                            'banking.operations',
+                                            user.role === 'admin' &&
+                                                page.props.current_company_id
+                                                ? {
+                                                      company_id:
+                                                          page.props
+                                                              .current_company_id,
+                                                  }
+                                                : {},
+                                        )}
+                                    >
+                                        Open operations hub
+                                    </Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    ) : null}
+
                     <div className="grid gap-4 md:grid-cols-2">
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -374,6 +563,97 @@ export default function Dashboard({
                     </div>
 
                     <FinancialRatiosSection financialRatios={financialRatios} />
+
+                    {approvalSla ? (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Approval SLA</CardTitle>
+                                <CardDescription>
+                                    Pending journal approvals aging by SLA buckets.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    <div className="rounded-md border p-3">
+                                        <p className="text-xs text-muted-foreground">
+                                            Pending total
+                                        </p>
+                                        <p className="text-xl font-semibold">
+                                            {approvalSla.pending_total}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-md border p-3">
+                                        <p className="text-xs text-muted-foreground">
+                                            Over 2 days
+                                        </p>
+                                        <p className="text-xl font-semibold">
+                                            {approvalSla.over_2_days}
+                                        </p>
+                                    </div>
+                                    <div className="rounded-md border p-3">
+                                        <p className="text-xs text-muted-foreground">
+                                            Over 7 days
+                                        </p>
+                                        <p className="text-xl font-semibold">
+                                            {approvalSla.over_7_days}
+                                        </p>
+                                    </div>
+                                </div>
+                                {approvalSla.oldest_pending ? (
+                                    <div className="rounded-md border bg-muted/30 p-3">
+                                        <p className="text-sm font-medium">
+                                            Oldest pending: Journal #
+                                            {approvalSla.oldest_pending.id}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            Age:{' '}
+                                            {approvalSla.oldest_pending
+                                                .pending_age_days ?? 0}{' '}
+                                            day(s)
+                                            {approvalSla.oldest_pending
+                                                .first_approved_by_name
+                                                ? ` · First approved by ${approvalSla.oldest_pending.first_approved_by_name}`
+                                                : ''}
+                                        </p>
+                                        <div className="mt-2 flex gap-2">
+                                            <Button variant="outline" asChild>
+                                                <Link
+                                                    href={route('journals.show', {
+                                                        journal: approvalSla
+                                                            .oldest_pending.id,
+                                                        company_id:
+                                                            approvalSla.admin_company_id ??
+                                                            undefined,
+                                                    })}
+                                                >
+                                                    Review oldest
+                                                </Link>
+                                            </Button>
+                                            <Button variant="outline" asChild>
+                                                <Link
+                                                    href={route('journals.index', {
+                                                        company_id:
+                                                            approvalSla.admin_company_id ??
+                                                            undefined,
+                                                    })}
+                                                >
+                                                    Open journals
+                                                </Link>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                        No pending journals right now.
+                                    </p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ) : null}
+
+                    <AuditIntegrityTrendSection
+                        auditIntegrityTrend={auditIntegrityTrend}
+                    />
 
                     <Card>
                         <CardHeader>

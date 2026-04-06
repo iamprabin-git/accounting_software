@@ -1,25 +1,37 @@
 <?php
 
+use App\Http\Middleware\EnsureCompanyFeature;
+use App\Http\Middleware\EnsureCustomerAccountActive;
+use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ResolveBankingApiCompany;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Laravel\Sanctum\Http\Middleware\CheckAbilities;
+use Laravel\Sanctum\Http\Middleware\CheckForAnyAbility;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
-            \App\Http\Middleware\HandleInertiaRequests::class,
-            \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
+            HandleInertiaRequests::class,
+            AddLinkHeadersForPreloadedAssets::class,
         ]);
 
         $middleware->alias([
-            'customer.active' => \App\Http\Middleware\EnsureCustomerAccountActive::class,
-            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
-            'company.feature' => \App\Http\Middleware\EnsureCompanyFeature::class,
+            'customer.active' => EnsureCustomerAccountActive::class,
+            'role' => EnsureUserHasRole::class,
+            'company.feature' => EnsureCompanyFeature::class,
+            'banking.api.company' => ResolveBankingApiCompany::class,
+            'abilities' => CheckAbilities::class,
+            'abilities_any' => CheckForAnyAbility::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

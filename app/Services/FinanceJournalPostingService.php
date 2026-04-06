@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Events\JournalEntryPosted;
 use App\Models\ChartAccount;
+use App\Models\Company;
 use App\Models\JournalEntry;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +34,11 @@ class FinanceJournalPostingService
         $this->assertApprovedChartAccount($companyId, $debitChartAccountId);
         $this->assertApprovedChartAccount($companyId, $creditChartAccountId);
 
-        $approved = $user->canApproveJournalEntries();
+        // Product movement postings (loan/savings/investment) must stay in sync with
+        // principal updates, so they are auto-approved journal entries.
+        $approved = $financeCategory !== null
+            ? true
+            : $user->canApproveJournalEntries();
 
         return DB::transaction(function () use (
             $companyId,
@@ -47,6 +53,22 @@ class FinanceJournalPostingService
             $memberId,
             $financeCategory,
         ) {
+            $lockedCompany = Company::query()
+                ->whereKey($companyId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($approved && $lockedCompany->isJournalDateLocked($transactionDate)) {
+                throw new InvalidArgumentException(__('This period is locked. Post using an open transaction date.'));
+            }
+
+            $postedNumber = null;
+            if ($approved) {
+                $postedNumber = (int) $lockedCompany->next_journal_posted_number;
+                $lockedCompany->next_journal_posted_number = $postedNumber + 1;
+                $lockedCompany->save();
+            }
+
             $entry = JournalEntry::query()->create([
                 'company_id' => $companyId,
                 'member_id' => $memberId,
@@ -58,6 +80,7 @@ class FinanceJournalPostingService
                 'status' => $approved ? JournalEntry::STATUS_APPROVED : JournalEntry::STATUS_DRAFT,
                 'approved_by_user_id' => $approved ? $user->id : null,
                 'approved_at' => $approved ? now() : null,
+                'posted_number' => $postedNumber,
             ]);
 
             $entry->lines()->create([
@@ -73,7 +96,23 @@ class FinanceJournalPostingService
                 'description' => null,
             ]);
 
-            return $entry->fresh(['lines']);
+            app(AccountingAuditService::class)->logForJournal(
+                $entry,
+                $approved ? 'journal.auto_posted' : 'journal.auto_created_draft',
+                $user,
+                [
+                    'finance_category' => $financeCategory,
+                    'amount_cents' => $amountCents,
+                ],
+            );
+
+            $fresh = $entry->fresh(['lines']);
+
+            if ($approved && $fresh !== null) {
+                JournalEntryPosted::dispatch($fresh);
+            }
+
+            return $fresh;
         });
     }
 
