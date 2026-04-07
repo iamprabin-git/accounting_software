@@ -73,7 +73,7 @@ function FinancialRatiosSection({ financialRatios }) {
     };
 
     return (
-        <Card className="border-slate-200/90 shadow-sm dark:border-slate-800">
+        <Card className="cbs-surface border-slate-200/90 dark:border-slate-800">
             <CardHeader>
                 <div className="flex items-center gap-2">
                     <BarChart3 className="h-5 w-5 text-slate-600 dark:text-slate-400" />
@@ -192,7 +192,7 @@ function AuditIntegrityTrendSection({ auditIntegrityTrend }) {
     const trailParams = adminCompanyId ? { company_id: adminCompanyId } : {};
 
     return (
-        <Card className="border-slate-200/90 shadow-sm dark:border-slate-800">
+        <Card className="cbs-surface border-slate-200/90 dark:border-slate-800">
             <CardHeader>
                 <div className="flex items-center gap-2">
                     <ShieldCheck className="h-5 w-5 text-slate-600 dark:text-slate-400" />
@@ -357,7 +357,7 @@ export default function Dashboard({
                     ) : null}
 
                     <div className="grid gap-4 sm:grid-cols-2">
-                        <Card className="border-slate-200/90 shadow-sm dark:border-slate-800">
+                        <Card className="cbs-surface border-slate-200/90 dark:border-slate-800">
                             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                                 <div>
                                     <CardTitle className="text-base">
@@ -379,7 +379,7 @@ export default function Dashboard({
                                 </Button>
                             </CardContent>
                         </Card>
-                        <Card className="border-slate-200/90 shadow-sm dark:border-slate-800">
+                        <Card className="cbs-surface border-slate-200/90 dark:border-slate-800">
                             <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                                 <div>
                                     <CardTitle className="text-base">
@@ -409,7 +409,7 @@ export default function Dashboard({
 
                     <FinancialRatiosSection financialRatios={financialRatios} />
 
-                    <Card className="border-slate-200/90 shadow-sm dark:border-slate-800">
+                    <Card className="cbs-surface border-slate-200/90 dark:border-slate-800">
                         <CardHeader>
                             <div className="flex items-center gap-2">
                                 <MessageCircle className="h-5 w-5 text-slate-600 dark:text-slate-400" />
@@ -490,7 +490,7 @@ export default function Dashboard({
                     )}
                     {companyFeatures?.core_banking_professional &&
                     user.can_edit_accounting ? (
-                        <Card className="border-indigo-200/80 bg-gradient-to-r from-indigo-50/90 to-white dark:border-indigo-900/40 dark:from-indigo-950/50 dark:to-slate-950">
+                        <Card className="cbs-surface border-indigo-200/80 bg-gradient-to-r from-indigo-50/90 to-white dark:border-indigo-900/40 dark:from-indigo-950/50 dark:to-slate-950">
                             <CardHeader className="flex flex-row items-start gap-3 space-y-0">
                                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-sm">
                                     <Building2 className="h-5 w-5" />
@@ -528,7 +528,7 @@ export default function Dashboard({
                     ) : null}
 
                     <div className="grid gap-4 md:grid-cols-2">
-                        <Card>
+                        <Card className="cbs-surface">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">
                                     {t('dashboard.chartAccounts')}
@@ -544,7 +544,7 @@ export default function Dashboard({
                                 </CardDescription>
                             </CardContent>
                         </Card>
-                        <Card>
+                        <Card className="cbs-surface">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">
                                     {t('dashboard.journalEntries')}
@@ -565,7 +565,7 @@ export default function Dashboard({
                     <FinancialRatiosSection financialRatios={financialRatios} />
 
                     {approvalSla ? (
-                        <Card>
+                        <Card className="cbs-surface">
                             <CardHeader>
                                 <CardTitle>Approval SLA</CardTitle>
                                 <CardDescription>
@@ -655,7 +655,7 @@ export default function Dashboard({
                         auditIntegrityTrend={auditIntegrityTrend}
                     />
 
-                    <Card>
+                    <Card className="cbs-surface">
                         <CardHeader>
                             <CardTitle>{t('dashboard.nextSteps')}</CardTitle>
                             <CardDescription>

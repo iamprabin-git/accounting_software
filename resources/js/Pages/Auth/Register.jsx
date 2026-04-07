@@ -27,6 +27,14 @@ export default function Register({ googleAuthEnabled }) {
     return (
         <GuestLayout>
             <Head title={t('auth.register')} />
+            <div className="mb-5">
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                    {t('auth.register')}
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    Create your organization account and get started.
+                </p>
+            </div>
 
             {googleAuthEnabled && (
                 <div className="mb-6 space-y-4">

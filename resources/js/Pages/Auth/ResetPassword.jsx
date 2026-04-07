@@ -24,6 +24,11 @@ export default function ResetPassword({ token, email }) {
     return (
         <GuestLayout>
             <Head title="Reset Password" />
+            <div className="mb-5">
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                    Reset Password
+                </h1>
+            </div>
 
             <form onSubmit={submit}>
                 <div>

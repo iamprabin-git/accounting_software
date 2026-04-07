@@ -58,3 +58,54 @@
         @apply bg-background text-foreground antialiased;
     }
 }
+
+@layer components {
+    .cbs-shell {
+        background:
+            radial-gradient(circle at 20% 0%, rgb(99 102 241 / 0.08), transparent 40%),
+            radial-gradient(circle at 80% 10%, rgb(16 185 129 / 0.07), transparent 35%);
+    }
+
+    .cbs-sidebar {
+        background:
+            linear-gradient(180deg, rgb(2 6 23 / 0.95) 0%, rgb(15 23 42 / 0.96) 100%);
+        border-color: rgb(51 65 85 / 0.85);
+    }
+
+    .cbs-topbar {
+        backdrop-filter: blur(10px);
+        background-color: rgb(255 255 255 / 0.85);
+    }
+
+    .dark .cbs-topbar {
+        background-color: rgb(15 23 42 / 0.82);
+    }
+
+    .cbs-surface {
+        @apply rounded-xl border border-border/70 bg-card/95 shadow-sm;
+        box-shadow:
+            0 1px 2px rgb(15 23 42 / 0.08),
+            0 10px 30px rgb(15 23 42 / 0.06);
+    }
+
+    .cbs-auth-shell {
+        background:
+            radial-gradient(circle at 10% 0%, rgb(59 130 246 / 0.08), transparent 35%),
+            radial-gradient(circle at 90% 15%, rgb(99 102 241 / 0.08), transparent 30%),
+            linear-gradient(180deg, rgb(248 250 252) 0%, rgb(241 245 249) 100%);
+    }
+
+    .dark .cbs-auth-shell {
+        background:
+            radial-gradient(circle at 10% 0%, rgb(37 99 235 / 0.16), transparent 35%),
+            radial-gradient(circle at 90% 15%, rgb(79 70 229 / 0.16), transparent 30%),
+            linear-gradient(180deg, rgb(2 6 23) 0%, rgb(15 23 42) 100%);
+    }
+
+    .cbs-auth-card {
+        @apply rounded-2xl border border-border/80 bg-card/90 p-6 shadow-xl backdrop-blur;
+        box-shadow:
+            0 10px 25px rgb(15 23 42 / 0.12),
+            0 2px 8px rgb(15 23 42 / 0.08);
+    }
+}

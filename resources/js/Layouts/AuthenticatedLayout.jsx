@@ -389,7 +389,7 @@ function SidebarNav({ sections, onNavigate }) {
         <nav className="flex flex-1 flex-col gap-6 overflow-y-auto p-3">
             {sections.map((section) => (
                 <div key={section.id ?? section.title}>
-                    <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+                    <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                         {section.title}
                     </p>
                     <div className="space-y-0.5">
@@ -451,7 +451,7 @@ export default function AuthenticatedLayout({ header, children }) {
             className={
                 isEndUser
                     ? 'min-h-screen bg-slate-100 dark:bg-slate-950'
-                    : 'min-h-screen bg-gray-100 dark:bg-background'
+                    : 'cbs-shell min-h-screen bg-slate-100/70 dark:bg-slate-950'
             }
         >
             {/* Mobile overlay */}
@@ -467,7 +467,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
             {/* Mobile slide-out sidebar */}
             <aside
-                className={`fixed inset-y-0 left-0 z-50 flex w-64 max-w-[85vw] flex-col border-r border-slate-800 bg-slate-900 shadow-xl transition-transform duration-200 ease-out md:hidden print:hidden ${
+                className={`cbs-sidebar fixed inset-y-0 left-0 z-50 flex w-64 max-w-[85vw] flex-col border-r shadow-xl transition-transform duration-200 ease-out md:hidden print:hidden ${
                     mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
                 }`}
             >
@@ -507,7 +507,7 @@ export default function AuthenticatedLayout({ header, children }) {
             </aside>
 
             {/* Desktop sidebar */}
-            <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-slate-800 bg-slate-900 md:flex print:hidden">
+            <aside className="cbs-sidebar fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r md:flex print:hidden">
                 <div className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-800 px-4">
                     <Link
                         href={route('dashboard')}
@@ -525,7 +525,7 @@ export default function AuthenticatedLayout({ header, children }) {
             {/* Main column */}
             <div className="flex min-h-screen flex-col md:pl-64 print:pl-0">
                 {/* Top bar (horizontal) */}
-                <header className="sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm print:hidden dark:border-border dark:bg-card">
+                <header className="cbs-topbar sticky top-0 z-20 border-b border-gray-200/70 shadow-sm print:hidden dark:border-border/70">
                     <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
                         <button
                             type="button"
@@ -618,7 +618,7 @@ export default function AuthenticatedLayout({ header, children }) {
                 </header>
 
                 {header && (
-                    <div className="border-b border-gray-200 bg-white dark:border-border dark:bg-card">
+                    <div className="cbs-topbar border-b border-gray-200/70 dark:border-border/70">
                         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
                             {header}
                         </div>

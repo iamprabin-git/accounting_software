@@ -7,7 +7,7 @@ import { Link } from '@inertiajs/react';
  */
 export default function GuestLayout({ children, branding = null }) {
     return (
-        <div className="relative flex min-h-screen flex-col items-center bg-gray-100 pt-6 sm:justify-center sm:pt-0 dark:bg-background">
+        <div className="cbs-auth-shell relative flex min-h-screen flex-col items-center px-4 pt-6 sm:justify-center sm:px-6 sm:pt-0">
             <div className="absolute end-4 top-4 z-10 sm:end-6 sm:top-6">
                 <ThemeLanguageControls />
             </div>
@@ -27,7 +27,7 @@ export default function GuestLayout({ children, branding = null }) {
                             <p className="mt-3 max-w-sm text-center text-lg font-semibold leading-snug text-gray-900 dark:text-foreground">
                                 {branding.name}
                             </p>
-                            <p className="mt-1 text-center text-xs text-gray-500 dark:text-muted-foreground">
+                            <p className="mt-1 text-center text-xs text-gray-600 dark:text-muted-foreground">
                                 Sign in to your organization
                             </p>
                         </>
@@ -37,7 +37,7 @@ export default function GuestLayout({ children, branding = null }) {
                 </Link>
             </div>
 
-            <div className="mt-6 w-full overflow-hidden bg-white px-6 py-4 shadow-md dark:border dark:border-border dark:bg-card sm:max-w-md sm:rounded-lg">
+            <div className="cbs-auth-card mt-6 w-full overflow-hidden sm:max-w-md">
                 {children}
             </div>
         </div>

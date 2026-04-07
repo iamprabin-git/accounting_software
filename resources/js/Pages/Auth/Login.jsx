@@ -46,9 +46,17 @@ export default function Login({
     return (
         <GuestLayout branding={loginBranding}>
             <Head title={t('auth.login')} />
+            <div className="mb-5">
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                    {t('auth.login')}
+                </h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                    Access your CBS workspace securely.
+                </p>
+            </div>
 
             {status && (
-                <div className="mb-4 text-sm font-medium text-green-600 dark:text-green-400">
+                <div className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 dark:border-green-900/40 dark:bg-green-950/40 dark:text-green-300">
                     {status}
                 </div>
             )}
