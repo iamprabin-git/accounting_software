@@ -49,6 +49,69 @@ const reviews = [
     },
 ];
 
+const featureMatrixRows = [
+    {
+        feature: 'Accounting core (chart of accounts, journals, reports)',
+        starter: true,
+        pro: true,
+        enterprise: true,
+    },
+    {
+        feature: 'Inventory management',
+        starter: false,
+        pro: true,
+        enterprise: true,
+    },
+    {
+        feature: 'CRM (accounts, contacts, opportunities, activities)',
+        starter: false,
+        pro: true,
+        enterprise: true,
+    },
+    {
+        feature: 'Debtors and creditors',
+        starter: false,
+        pro: false,
+        enterprise: true,
+    },
+    {
+        feature: 'CBS members and groups',
+        starter: false,
+        pro: false,
+        enterprise: true,
+    },
+    {
+        feature: 'CBS finance suite (loan/savings products, positions)',
+        starter: false,
+        pro: false,
+        enterprise: true,
+    },
+    {
+        feature: 'Core banking operations hub',
+        starter: false,
+        pro: false,
+        enterprise: true,
+    },
+    {
+        feature: 'Integrations and API access',
+        starter: false,
+        pro: false,
+        enterprise: true,
+    },
+];
+
+function MatrixCell({ enabled }) {
+    return enabled ? (
+        <span className="inline-flex items-center justify-center rounded-full bg-emerald-500/15 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+            Included
+        </span>
+    ) : (
+        <span className="inline-flex items-center justify-center rounded-full bg-slate-500/10 px-2 py-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+            —
+        </span>
+    );
+}
+
 export default function Welcome({
     auth,
     canLogin,
@@ -147,6 +210,9 @@ export default function Welcome({
                         <nav className="flex flex-wrap items-center gap-4 sm:gap-6">
                             <a href="#pricing" className={navLink}>
                                 {t('welcome.pricing')}
+                            </a>
+                            <a href="#feature-matrix" className={navLink}>
+                                Feature Matrix
                             </a>
                             <a href="#about" className={navLink}>
                                 {t('welcome.about')}
@@ -354,6 +420,65 @@ export default function Welcome({
                     </section>
 
                     <section
+                        id="feature-matrix"
+                        className="scroll-mt-20 border-b border-border/60 bg-background px-4 py-20 sm:px-6"
+                    >
+                        <div className="mx-auto max-w-6xl">
+                            <div className="mx-auto max-w-2xl text-center">
+                                <h2 className="text-3xl font-bold tracking-tight">
+                                    Feature matrix
+                                </h2>
+                                <p className="mt-3 text-muted-foreground">
+                                    Choose the plan that matches your growth stage,
+                                    from accounting essentials to full CBS + CRM +
+                                    inventory operations.
+                                </p>
+                            </div>
+                            <div className="mt-10 overflow-x-auto rounded-2xl border border-border bg-card/80 shadow-sm">
+                                <table className="min-w-full border-collapse text-sm">
+                                    <thead className="bg-muted/50">
+                                        <tr>
+                                            <th className="px-4 py-3 text-left font-semibold">
+                                                Feature
+                                            </th>
+                                            <th className="px-4 py-3 text-center font-semibold">
+                                                Starter
+                                            </th>
+                                            <th className="px-4 py-3 text-center font-semibold">
+                                                Professional
+                                            </th>
+                                            <th className="px-4 py-3 text-center font-semibold">
+                                                Enterprise
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {featureMatrixRows.map((row) => (
+                                            <tr
+                                                key={row.feature}
+                                                className="border-t border-border/70"
+                                            >
+                                                <td className="px-4 py-3 font-medium text-foreground">
+                                                    {row.feature}
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <MatrixCell enabled={row.starter} />
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <MatrixCell enabled={row.pro} />
+                                                </td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <MatrixCell enabled={row.enterprise} />
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section
                         id="reviews"
                         className="scroll-mt-20 px-4 py-20 sm:px-6"
                     >
@@ -510,6 +635,12 @@ export default function Welcome({
                         <div className="flex gap-6">
                             <a href="#pricing" className="hover:text-foreground">
                                 Pricing
+                            </a>
+                            <a
+                                href="#feature-matrix"
+                                className="hover:text-foreground"
+                            >
+                                Feature Matrix
                             </a>
                             <Link
                                 href={route('login')}
