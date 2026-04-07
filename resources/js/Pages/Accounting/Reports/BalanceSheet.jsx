@@ -38,6 +38,7 @@ function Section({ title, rows }) {
 export default function BalanceSheet({
     report,
     as_of,
+    show_zero = true,
     printMode,
     companies,
     currentCompanyId,
@@ -46,6 +47,7 @@ export default function BalanceSheet({
     const user = usePage().props.auth.user ?? {};
     const isAdmin = user.role === 'admin';
     const [asOf, setAsOf] = useState(as_of);
+    const [showZero, setShowZero] = useState(Boolean(show_zero));
 
     usePrintWhenReady(Boolean(printMode));
 
@@ -55,6 +57,7 @@ export default function BalanceSheet({
             route('reports.balance-sheet'),
             {
                 as_of: asOf,
+                show_zero: showZero ? 1 : 0,
                 company_id: isAdmin ? currentCompanyId : undefined,
             },
             { preserveState: true },
@@ -63,6 +66,7 @@ export default function BalanceSheet({
 
     const printHref = route('reports.balance-sheet', {
         as_of: asOf,
+        show_zero: showZero ? 1 : 0,
         print: 1,
         company_id: isAdmin ? currentCompanyId : undefined,
     });
@@ -80,7 +84,7 @@ export default function BalanceSheet({
                             currentCompanyId={currentCompanyId}
                             routeName="reports.balance-sheet"
                             routeParams={{}}
-                            query={{ as_of: asOf }}
+                            query={{ as_of: asOf, show_zero: showZero ? 1 : 0 }}
                         />
                         <Link
                             href={printHref}
@@ -112,6 +116,15 @@ export default function BalanceSheet({
                                 className="mt-1 rounded-md border-gray-300"
                             />
                         </div>
+                        <label className="mb-2 inline-flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                                type="checkbox"
+                                checked={showZero}
+                                onChange={(e) => setShowZero(e.target.checked)}
+                                className="rounded border-gray-300"
+                            />
+                            Show zero balances
+                        </label>
                         <button
                             type="submit"
                             className="rounded-md bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"

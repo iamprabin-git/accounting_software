@@ -7,6 +7,7 @@ use App\Models\AccountingAuditLog;
 use App\Models\ChartAccount;
 use App\Models\JournalEntry;
 use App\Services\FinancialRatioService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,7 +16,7 @@ class DashboardController extends Controller
 {
     use ResolvesAccountingCompany;
 
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
 
@@ -39,6 +40,15 @@ class DashboardController extends Controller
                 ],
                 'financialRatios' => $financialRatios,
             ]);
+        }
+
+        if ($user->role === 'staff' && $user->canEditAccounting()) {
+            $company = $this->optionalAccountingCompany($request);
+            if ($company !== null && $company->allowsFinanceSuite()) {
+                $query = $user->isAdmin() ? ['company_id' => $company->id] : [];
+
+                return redirect()->route('teller.day-close.create', $query);
+            }
         }
 
         $accountsQuery = ChartAccount::query();

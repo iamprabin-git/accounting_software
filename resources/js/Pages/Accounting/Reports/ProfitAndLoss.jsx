@@ -10,6 +10,7 @@ export default function ProfitAndLoss({
     report,
     from,
     to,
+    show_zero = true,
     printMode,
     companies,
     currentCompanyId,
@@ -19,6 +20,7 @@ export default function ProfitAndLoss({
     const isAdmin = user.role === 'admin';
     const [fromD, setFromD] = useState(from);
     const [toD, setToD] = useState(to);
+    const [showZero, setShowZero] = useState(Boolean(show_zero));
 
     usePrintWhenReady(Boolean(printMode));
 
@@ -29,6 +31,7 @@ export default function ProfitAndLoss({
             {
                 from: fromD,
                 to: toD,
+                show_zero: showZero ? 1 : 0,
                 company_id: isAdmin ? currentCompanyId : undefined,
             },
             { preserveState: true },
@@ -38,6 +41,7 @@ export default function ProfitAndLoss({
     const printHref = route('reports.profit-loss', {
         from: fromD,
         to: toD,
+        show_zero: showZero ? 1 : 0,
         print: 1,
         company_id: isAdmin ? currentCompanyId : undefined,
     });
@@ -55,7 +59,7 @@ export default function ProfitAndLoss({
                             currentCompanyId={currentCompanyId}
                             routeName="reports.profit-loss"
                             routeParams={{}}
-                            query={{ from: fromD, to: toD }}
+                            query={{ from: fromD, to: toD, show_zero: showZero ? 1 : 0 }}
                         />
                         <Link
                             href={printHref}
@@ -98,6 +102,15 @@ export default function ProfitAndLoss({
                                 className="mt-1 rounded-md border-gray-300"
                             />
                         </div>
+                        <label className="mb-2 inline-flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                                type="checkbox"
+                                checked={showZero}
+                                onChange={(e) => setShowZero(e.target.checked)}
+                                className="rounded border-gray-300"
+                            />
+                            Show zero balances
+                        </label>
                         <button
                             type="submit"
                             className="rounded-md bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"

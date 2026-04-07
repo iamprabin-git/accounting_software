@@ -44,28 +44,41 @@ class AccountingReportService
     /**
      * @return array{accounts: list<array{code: string, name: string, type: string, debit_cents: int, credit_cents: int, inventory_extension?: bool}>, totals: array{debit_cents: int, credit_cents: int}, inventory_at_cost_cents: int}
      */
-    public function trialBalance(CarbonInterface $asOf): array
+    public function trialBalance(CarbonInterface $asOf, bool $showZero = true): array
     {
         $lines = $this->linesForApprovedEntries(to: $asOf);
 
         $rows = $this->aggregateByAccount($lines);
+        $coa = $this->approvedAccountsById();
 
         $accounts = [];
         $totalDebit = 0;
         $totalCredit = 0;
 
-        foreach ($rows as $row) {
+        foreach ($coa as $accountId => $account) {
+            $row = $rows->get($accountId, [
+                'code' => $account['code'],
+                'name' => $account['name'],
+                'type' => $account['type'],
+                'debit_cents' => 0,
+                'credit_cents' => 0,
+            ]);
+
             $net = $row['debit_cents'] - $row['credit_cents'];
-            if ($net === 0) {
-                continue;
-            }
 
             if ($net > 0) {
                 $debit = $net;
                 $credit = 0;
-            } else {
+            } elseif ($net < 0) {
                 $debit = 0;
                 $credit = -$net;
+            } else {
+                $debit = 0;
+                $credit = 0;
+            }
+
+            if (! $showZero && $debit === 0 && $credit === 0) {
+                continue;
             }
 
             $totalDebit += $debit;
@@ -136,21 +149,30 @@ class AccountingReportService
     /**
      * @return array{revenue: list<array{code: string, name: string, amount_cents: int}>, expenses: list<array{code: string, name: string, amount_cents: int}>, net_income_cents: int}
      */
-    public function profitAndLoss(CarbonInterface $from, CarbonInterface $to): array
+    public function profitAndLoss(CarbonInterface $from, CarbonInterface $to, bool $showZero = true): array
     {
         $lines = $this->linesForApprovedEntries($from, $to);
 
         $rows = $this->aggregateByAccount($lines);
+        $coa = $this->approvedAccountsById();
 
         $revenue = [];
         $expenses = [];
         $totalRevenue = 0;
         $totalExpense = 0;
 
-        foreach ($rows as $row) {
+        foreach ($coa as $accountId => $account) {
+            $row = $rows->get($accountId, [
+                'code' => $account['code'],
+                'name' => $account['name'],
+                'type' => $account['type'],
+                'debit_cents' => 0,
+                'credit_cents' => 0,
+            ]);
+
             if ($row['type'] === ChartAccount::TYPE_REVENUE) {
                 $amt = $row['credit_cents'] - $row['debit_cents'];
-                if ($amt === 0) {
+                if (! $showZero && $amt === 0) {
                     continue;
                 }
                 $revenue[] = [
@@ -163,7 +185,7 @@ class AccountingReportService
 
             if ($row['type'] === ChartAccount::TYPE_EXPENSE) {
                 $amt = $row['debit_cents'] - $row['credit_cents'];
-                if ($amt === 0) {
+                if (! $showZero && $amt === 0) {
                     continue;
                 }
                 $expenses[] = [
@@ -188,11 +210,12 @@ class AccountingReportService
     /**
      * @return array{assets: list<array{code: string, name: string, balance_cents: int}>, liabilities: list<array{code: string, name: string, balance_cents: int}>, equity: list<array{code: string, name: string, balance_cents: int}>, liabilities_plus_equity_cents: int, assets_total_cents: int}
      */
-    public function balanceSheet(CarbonInterface $asOf): array
+    public function balanceSheet(CarbonInterface $asOf, bool $showZero = true): array
     {
         $lines = $this->linesForApprovedEntries(to: $asOf);
 
         $rows = $this->aggregateByAccount($lines);
+        $coa = $this->approvedAccountsById();
 
         $assets = [];
         $liabilities = [];
@@ -201,10 +224,18 @@ class AccountingReportService
         $liabilitiesTotal = 0;
         $equityTotal = 0;
 
-        foreach ($rows as $row) {
+        foreach ($coa as $accountId => $account) {
+            $row = $rows->get($accountId, [
+                'code' => $account['code'],
+                'name' => $account['name'],
+                'type' => $account['type'],
+                'debit_cents' => 0,
+                'credit_cents' => 0,
+            ]);
+
             if ($row['type'] === ChartAccount::TYPE_ASSET) {
                 $bal = $row['debit_cents'] - $row['credit_cents'];
-                if ($bal === 0) {
+                if (! $showZero && $bal === 0) {
                     continue;
                 }
                 $assets[] = ['code' => $row['code'], 'name' => $row['name'], 'balance_cents' => $bal];
@@ -213,7 +244,7 @@ class AccountingReportService
 
             if ($row['type'] === ChartAccount::TYPE_LIABILITY) {
                 $bal = $row['credit_cents'] - $row['debit_cents'];
-                if ($bal === 0) {
+                if (! $showZero && $bal === 0) {
                     continue;
                 }
                 $liabilities[] = ['code' => $row['code'], 'name' => $row['name'], 'balance_cents' => $bal];
@@ -222,7 +253,7 @@ class AccountingReportService
 
             if ($row['type'] === ChartAccount::TYPE_EQUITY) {
                 $bal = $row['credit_cents'] - $row['debit_cents'];
-                if ($bal === 0) {
+                if (! $showZero && $bal === 0) {
                     continue;
                 }
                 $equity[] = ['code' => $row['code'], 'name' => $row['name'], 'balance_cents' => $bal];
@@ -379,6 +410,25 @@ class AccountingReportService
                 'credit_cents' => (int) $group->sum('credit_cents'),
             ];
         });
+    }
+
+    /**
+     * @return Collection<int, array{code: string, name: string, type: string}>
+     */
+    protected function approvedAccountsById(): Collection
+    {
+        return ChartAccount::query()
+            ->where('company_id', $this->companyId)
+            ->approvedForJournals()
+            ->orderBy('code')
+            ->get(['id', 'code', 'name', 'type'])
+            ->mapWithKeys(fn (ChartAccount $a) => [
+                (int) $a->id => [
+                    'code' => $a->code,
+                    'name' => $a->name,
+                    'type' => $a->type,
+                ],
+            ]);
     }
 
     protected function accountBalanceCents(int $chartAccountId, CarbonInterface $from, CarbonInterface $to): int

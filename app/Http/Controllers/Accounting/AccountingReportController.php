@@ -37,13 +37,15 @@ class AccountingReportController extends Controller
 
         $company = $this->accountingCompany($request);
         $asOf = Carbon::parse($request->input('as_of') ?: now()->toDateString());
+        $showZero = $request->boolean('show_zero', true);
 
         $service = new AccountingReportService($company->id);
-        $data = $service->trialBalance($asOf);
+        $data = $service->trialBalance($asOf, $showZero);
 
         return Inertia::render('Accounting/Reports/TrialBalance', [
             'report' => $data,
             'as_of' => $asOf->toDateString(),
+            'show_zero' => $showZero,
             'printMode' => $request->boolean('print'),
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
@@ -58,14 +60,16 @@ class AccountingReportController extends Controller
         $company = $this->accountingCompany($request);
         $from = Carbon::parse($request->input('from') ?: now()->startOfMonth()->toDateString());
         $to = Carbon::parse($request->input('to') ?: now()->toDateString());
+        $showZero = $request->boolean('show_zero', true);
 
         $service = new AccountingReportService($company->id);
-        $data = $service->profitAndLoss($from, $to);
+        $data = $service->profitAndLoss($from, $to, $showZero);
 
         return Inertia::render('Accounting/Reports/ProfitAndLoss', [
             'report' => $data,
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
+            'show_zero' => $showZero,
             'printMode' => $request->boolean('print'),
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
@@ -79,13 +83,15 @@ class AccountingReportController extends Controller
 
         $company = $this->accountingCompany($request);
         $asOf = Carbon::parse($request->input('as_of') ?: now()->toDateString());
+        $showZero = $request->boolean('show_zero', true);
 
         $service = new AccountingReportService($company->id);
-        $data = $service->balanceSheet($asOf);
+        $data = $service->balanceSheet($asOf, $showZero);
 
         return Inertia::render('Accounting/Reports/BalanceSheet', [
             'report' => $data,
             'as_of' => $asOf->toDateString(),
+            'show_zero' => $showZero,
             'printMode' => $request->boolean('print'),
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
@@ -260,6 +266,92 @@ class AccountingReportController extends Controller
                 'par_ratio_bps' => $parRatioBps,
             ],
             'as_of' => $today->toDateString(),
+            'companies' => $this->accountingCompanyOptionsForAdmin($request),
+            'currentCompanyId' => $company->id,
+            'letterhead' => $this->companyLetterhead($company),
+        ]);
+    }
+
+    public function loanAccounts(Request $request): Response
+    {
+        $this->authorize('viewAny', JournalEntry::class);
+
+        $company = $this->accountingCompany($request);
+
+        $rows = FinancialPosition::query()
+            ->where('company_id', $company->id)
+            ->where('category', FinancialPosition::CATEGORY_LOAN)
+            ->with(['member:id,member_number,name', 'loanProduct:id,product_code,name'])
+            ->orderBy('account_number')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (FinancialPosition $p) => [
+                'id' => $p->id,
+                'account_number' => $p->account_number,
+                'title' => $p->title,
+                'member_number' => $p->member?->member_number,
+                'member_name' => $p->member?->name,
+                'product_code' => $p->loanProduct?->product_code,
+                'product_name' => $p->loanProduct?->name,
+                'workflow_status' => $p->loan_workflow_status,
+                'principal_cents' => (int) $p->principal_cents,
+                'start_date' => $p->start_date?->toDateString(),
+            ])
+            ->values()
+            ->all();
+
+        return Inertia::render('Accounting/Reports/LoanAccounts', [
+            'rows' => $rows,
+            'summary' => [
+                'accounts_total' => count($rows),
+                'principal_total_cents' => (int) array_sum(array_map(
+                    fn (array $r): int => (int) $r['principal_cents'],
+                    $rows,
+                )),
+            ],
+            'companies' => $this->accountingCompanyOptionsForAdmin($request),
+            'currentCompanyId' => $company->id,
+            'letterhead' => $this->companyLetterhead($company),
+        ]);
+    }
+
+    public function savingsAccounts(Request $request): Response
+    {
+        $this->authorize('viewAny', JournalEntry::class);
+
+        $company = $this->accountingCompany($request);
+
+        $rows = FinancialPosition::query()
+            ->where('company_id', $company->id)
+            ->where('category', FinancialPosition::CATEGORY_SAVINGS)
+            ->with(['member:id,member_number,name', 'savingsProduct:id,product_code,name'])
+            ->orderBy('account_number')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (FinancialPosition $p) => [
+                'id' => $p->id,
+                'account_number' => $p->account_number,
+                'title' => $p->title,
+                'member_number' => $p->member?->member_number,
+                'member_name' => $p->member?->name,
+                'product_code' => $p->savingsProduct?->product_code,
+                'product_name' => $p->savingsProduct?->name,
+                'workflow_status' => $p->savings_workflow_status,
+                'principal_cents' => (int) $p->principal_cents,
+                'start_date' => $p->start_date?->toDateString(),
+            ])
+            ->values()
+            ->all();
+
+        return Inertia::render('Accounting/Reports/SavingsAccounts', [
+            'rows' => $rows,
+            'summary' => [
+                'accounts_total' => count($rows),
+                'principal_total_cents' => (int) array_sum(array_map(
+                    fn (array $r): int => (int) $r['principal_cents'],
+                    $rows,
+                )),
+            ],
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
             'letterhead' => $this->companyLetterhead($company),

@@ -52,24 +52,32 @@ function StatCard({ title, value, sub, icon: Icon }) {
     );
 }
 
-function QuickLink({ href, title, desc }) {
+function QuickLink({ href, title, desc, disabled = false }) {
+    const cls = disabled
+        ? 'pointer-events-none group flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-100 p-4 text-slate-400'
+        : 'group flex items-start justify-between gap-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-indigo-800';
     return (
-        <Link
-            href={href}
-            className="group flex items-start justify-between gap-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-950/40 dark:hover:border-indigo-800"
-        >
+        <Link href={disabled ? '#' : href} className={cls}>
             <div>
-                <p className="font-medium text-slate-900 dark:text-slate-100">
+                <p className={`font-medium ${disabled ? 'text-slate-500' : 'text-slate-900 dark:text-slate-100'}`}>
                     {title}
                 </p>
-                <p className="mt-1 text-sm text-muted-foreground">{desc}</p>
+                <p className={`mt-1 text-sm ${disabled ? 'text-slate-400' : 'text-muted-foreground'}`}>{desc}</p>
+                {disabled ? (
+                    <p className="mt-2 text-xs font-medium text-amber-700">Start teller day first</p>
+                ) : null}
             </div>
             <ArrowRight className="mt-0.5 h-5 w-5 shrink-0 text-slate-400 transition group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
         </Link>
     );
 }
 
-export default function OperationsHub({ stats, companies, currentCompanyId }) {
+export default function OperationsHub({
+    stats,
+    companies,
+    currentCompanyId,
+    tellerDayOpenToday = false,
+}) {
     const page = usePage();
     const user = page.props.auth.user ?? {};
     const isAdmin = user.role === 'admin';
@@ -115,6 +123,11 @@ export default function OperationsHub({ stats, companies, currentCompanyId }) {
 
             <div className="py-8">
                 <div className="mx-auto max-w-7xl space-y-10 sm:px-6 lg:px-8">
+                    {!tellerDayOpenToday ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                            Teller day is not started for today. Cash receive/payment operations are locked globally until Start day.
+                        </div>
+                    ) : null}
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <StatCard
                             title="Approved members"
@@ -229,36 +242,55 @@ export default function OperationsHub({ stats, companies, currentCompanyId }) {
                                     href={route('members.index', q)}
                                     title="Members"
                                     desc="Onboarding, approval, member ledger"
+                                    disabled={!tellerDayOpenToday}
                                 />
                                 <QuickLink
                                     href={route('member-groups.index', q)}
                                     title="Member groups"
                                     desc="Group savings deposits &amp; loan collection sheets"
+                                    disabled={!tellerDayOpenToday}
                                 />
                                 <QuickLink
                                     href={fin('loan', 'front')}
                                     title="Loans — front desk"
                                     desc="Disbursements, installments, penalties"
+                                    disabled={!tellerDayOpenToday}
                                 />
                                 <QuickLink
                                     href={fin('savings', 'front')}
                                     title="Savings — front desk"
                                     desc="Deposits, withdrawals, statements"
+                                    disabled={!tellerDayOpenToday}
                                 />
                                 <QuickLink
                                     href={fin('loan', 'back')}
                                     title="Loans — back office"
                                     desc="Approvals, products, structural edits"
+                                    disabled={!tellerDayOpenToday}
                                 />
                                 <QuickLink
                                     href={fin('savings', 'back')}
                                     title="Savings — back office"
                                     desc="Approvals, products, adjustments"
+                                    disabled={!tellerDayOpenToday}
                                 />
                                 <QuickLink
                                     href={route('finance.account-entry', q)}
                                     title="Account number entry"
                                     desc="Fast lookup for teller-style service"
+                                    disabled={!tellerDayOpenToday}
+                                />
+                                <QuickLink
+                                    href={route('journals.create-cash-in', q)}
+                                    title="Cash receive"
+                                    desc="Record teller cash-in journal"
+                                    disabled={!tellerDayOpenToday}
+                                />
+                                <QuickLink
+                                    href={route('journals.create-cash-out', q)}
+                                    title="Cash payment"
+                                    desc="Record teller cash-out journal"
+                                    disabled={!tellerDayOpenToday}
                                 />
                                 <QuickLink
                                     href={route('teller.day-close.create', q)}
@@ -266,19 +298,15 @@ export default function OperationsHub({ stats, companies, currentCompanyId }) {
                                     desc="Cash count &amp; daily control sheet"
                                 />
                                 <QuickLink
-                                    href={route('journals.index', q)}
-                                    title="Journals"
-                                    desc="Draft, submit, approve, reverse"
+                                    href={route('journals.create', q)}
+                                    title="General journal entry"
+                                    desc="Non-cash journal (always enabled)"
                                 />
                                 <QuickLink
                                     href={route('bank-reconciliation.index', q)}
                                     title="Bank reconciliation"
                                     desc="Statements, matching, exceptions"
-                                />
-                                <QuickLink
-                                    href={route('reports.par-aging', q)}
-                                    title="PAR / loan aging"
-                                    desc="Portfolio buckets &amp; concentration"
+                                    disabled={!tellerDayOpenToday}
                                 />
                                 <QuickLink
                                     href={route('reports.index', q)}

@@ -38,6 +38,8 @@ export default function Edit({
     const closePeriodForm = useForm({
         close_lock_date: company.journal_lock_date || '',
         close_reason: '',
+        close_type: 'custom',
+        retained_earnings_account_id: '',
     });
     const reopenPeriodForm = useForm({
         reopen_to_date: '',
@@ -511,6 +513,49 @@ export default function Edit({
                                             </div>
                                             <div>
                                                 <InputLabel
+                                                    htmlFor="close_type"
+                                                    value="Close type"
+                                                />
+                                                <select
+                                                    id="close_type"
+                                                    className="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    value={
+                                                        closePeriodForm.data
+                                                            .close_type
+                                                    }
+                                                    onChange={(e) =>
+                                                        closePeriodForm.setData(
+                                                            'close_type',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="custom">
+                                                        Custom
+                                                    </option>
+                                                    <option value="month_end">
+                                                        Month end
+                                                    </option>
+                                                    <option value="quarter_end">
+                                                        Quarter end
+                                                    </option>
+                                                    <option value="year_end">
+                                                        Year end
+                                                    </option>
+                                                    <option value="fiscal_year_end">
+                                                        Fiscal year end (close P&amp;L)
+                                                    </option>
+                                                </select>
+                                                <InputError
+                                                    className="mt-1"
+                                                    message={
+                                                        closePeriodForm.errors
+                                                            .close_type
+                                                    }
+                                                />
+                                            </div>
+                                            <div>
+                                                <InputLabel
                                                     htmlFor="close_reason"
                                                     value="Reason"
                                                 />
@@ -538,6 +583,39 @@ export default function Edit({
                                                     }
                                                 />
                                             </div>
+                                            {closePeriodForm.data.close_type ===
+                                            'fiscal_year_end' ? (
+                                                <div>
+                                                    <InputLabel
+                                                        htmlFor="retained_earnings_account_id"
+                                                        value="Retained earnings account ID (optional)"
+                                                    />
+                                                    <TextInput
+                                                        id="retained_earnings_account_id"
+                                                        type="number"
+                                                        className="mt-1 block w-full"
+                                                        value={
+                                                            closePeriodForm.data
+                                                                .retained_earnings_account_id
+                                                        }
+                                                        onChange={(e) =>
+                                                            closePeriodForm.setData(
+                                                                'retained_earnings_account_id',
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        placeholder="Auto-detect by account name if empty"
+                                                    />
+                                                    <InputError
+                                                        className="mt-1"
+                                                        message={
+                                                            closePeriodForm
+                                                                .errors
+                                                                .retained_earnings_account_id
+                                                        }
+                                                    />
+                                                </div>
+                                            ) : null}
                                             <PrimaryButton
                                                 disabled={
                                                     closePeriodForm.processing

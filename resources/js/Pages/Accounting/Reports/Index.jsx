@@ -39,6 +39,16 @@ const cards = [
         desc: 'Outstanding loans by days since last installment (portfolio-style).',
         href: 'reports.par-aging',
     },
+    {
+        title: 'Loan accounts list',
+        desc: 'Total loan principal with individual member loan accounts.',
+        href: 'reports.loan-accounts',
+    },
+    {
+        title: 'Savings accounts list',
+        desc: 'Total savings balance with individual member savings accounts.',
+        href: 'reports.savings-accounts',
+    },
 ];
 
 export default function Index({ companies, currentCompanyId, letterhead }) {

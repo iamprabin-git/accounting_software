@@ -36,6 +36,7 @@ class Company extends Model
         'inventory_chart_account_id',
         'journal_lock_date',
         'journal_lock_reason',
+        'last_period_close_type',
         'journal_lock_updated_by_user_id',
         'journal_lock_updated_at',
         'next_journal_posted_number',

@@ -8,8 +8,10 @@ use App\Models\AccountingAuditLog;
 use App\Models\ChartAccount;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
+use App\Models\TellerDayClose;
 use App\Services\AccountingAuditService;
 use App\Support\MoneyAmount;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -75,12 +77,12 @@ class JournalEntryController extends Controller
         ]);
     }
 
-    public function createCashIn(Request $request): Response
+    public function createCashIn(Request $request): Response|RedirectResponse
     {
         return $this->createCashEntryForm($request, 'in');
     }
 
-    public function createCashOut(Request $request): Response
+    public function createCashOut(Request $request): Response|RedirectResponse
     {
         return $this->createCashEntryForm($request, 'out');
     }
@@ -596,11 +598,29 @@ class JournalEntryController extends Controller
         ];
     }
 
-    private function createCashEntryForm(Request $request, string $direction): Response
+    private function createCashEntryForm(Request $request, string $direction): Response|RedirectResponse
     {
         $this->authorize('create', JournalEntry::class);
 
         $company = $this->accountingCompany($request);
+        $businessDate = (string) ($request->input('date') ?: Carbon::today()->toDateString());
+
+        $openDay = TellerDayClose::query()
+            ->where('company_id', $company->id)
+            ->where('user_id', $request->user()->id)
+            ->whereDate('close_date', $businessDate)
+            ->where('day_status', TellerDayClose::STATUS_OPEN)
+            ->exists();
+
+        if (! $openDay) {
+            return redirect()->route('teller.day-close.create', array_merge(
+                $this->companyQuery($request),
+                ['date' => $businessDate],
+            ))->withErrors([
+                'close_date' => __('Start teller day first for :date before opening cash receive/payment.', ['date' => $businessDate]),
+            ]);
+        }
+
         $defaultCashAccountId = $this->defaultCashAccountId($company->id);
         $defaultCashAccountLabel = null;
 
@@ -662,6 +682,20 @@ class JournalEntryController extends Controller
         }
 
         $cashId = (int) $validated['cash_chart_account_id'];
+        $transactionDate = (string) $validated['transaction_date'];
+
+        $openDay = TellerDayClose::query()
+            ->where('company_id', $company->id)
+            ->where('user_id', $request->user()->id)
+            ->whereDate('close_date', $transactionDate)
+            ->where('day_status', TellerDayClose::STATUS_OPEN)
+            ->first();
+
+        if (! $openDay) {
+            throw ValidationException::withMessages([
+                'transaction_date' => __('Start the teller day first. Cash transactions are allowed only for open days.'),
+            ]);
+        }
 
         $counterpartLines = [];
         $totalCents = 0;
@@ -732,7 +766,7 @@ class JournalEntryController extends Controller
             ];
         }
 
-        DB::transaction(function () use ($request, $company, $validated, $memo, $linesForDb, $direction) {
+        DB::transaction(function () use ($request, $company, $validated, $memo, $linesForDb, $direction, $openDay, $totalCents) {
             $entry = JournalEntry::query()->create([
                 'company_id' => $company->id,
                 'user_id' => $request->user()->id,
@@ -759,6 +793,12 @@ class JournalEntryController extends Controller
                 ],
                 $request,
             );
+
+            TellerDayClose::query()
+                ->whereKey($openDay->id)
+                ->update([
+                    'cash_received_cents' => DB::raw('cash_received_cents + '.(int) $totalCents),
+                ]);
         });
 
         $statusMsg = $direction === 'in'

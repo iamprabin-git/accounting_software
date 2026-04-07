@@ -8,6 +8,8 @@ use App\Models\FinancialPosition;
 use App\Models\JournalEntry;
 use App\Models\Member;
 use App\Models\MemberGroup;
+use App\Models\TellerDayClose;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -54,6 +56,14 @@ class CoreBankingController extends Controller
             ->where('company_id', $companyId)
             ->count();
 
+        $today = Carbon::today()->toDateString();
+        $tellerDayOpenToday = TellerDayClose::query()
+            ->where('company_id', $companyId)
+            ->where('user_id', $user->id)
+            ->whereDate('close_date', $today)
+            ->where('day_status', TellerDayClose::STATUS_OPEN)
+            ->exists();
+
         return Inertia::render('Banking/OperationsHub', [
             'stats' => [
                 'members_approved' => $membersApproved,
@@ -66,6 +76,7 @@ class CoreBankingController extends Controller
             ],
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
+            'tellerDayOpenToday' => $tellerDayOpenToday,
         ]);
     }
 }

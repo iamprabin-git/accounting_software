@@ -294,6 +294,8 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:admin,company,st
             ->name('finance.positions.destroy');
 
         Route::get('/teller/day-close', [TellerDayCloseController::class, 'create'])->name('teller.day-close.create');
+        Route::post('/teller/day-close/start', [TellerDayCloseController::class, 'start'])->name('teller.day-close.start');
+        Route::post('/teller/day-close/end', [TellerDayCloseController::class, 'end'])->name('teller.day-close.end');
         Route::post('/teller/day-close', [TellerDayCloseController::class, 'store'])->name('teller.day-close.store');
     });
 
@@ -320,6 +322,8 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:admin,company,st
     Route::get('/reports/cash-flow', [AccountingReportController::class, 'cashFlow'])->name('reports.cash-flow');
     Route::get('/reports/general-ledger', [AccountingReportController::class, 'generalLedger'])->name('reports.general-ledger');
     Route::get('/reports/par-aging', [AccountingReportController::class, 'parAging'])->name('reports.par-aging');
+    Route::get('/reports/loan-accounts', [AccountingReportController::class, 'loanAccounts'])->name('reports.loan-accounts');
+    Route::get('/reports/savings-accounts', [AccountingReportController::class, 'savingsAccounts'])->name('reports.savings-accounts');
     Route::get('/audit-trail', [AccountingAuditTrailController::class, 'index'])->name('audit-trail.index');
     Route::post('/audit-trail/verify-now', [AccountingAuditTrailController::class, 'verifyNow'])->name('audit-trail.verify-now');
     Route::get('/audit-trail/export/csv', [AccountingAuditTrailController::class, 'exportCsv'])->name('audit-trail.export.csv');
