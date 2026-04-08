@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ChartAccount;
 use App\Models\Company;
+use App\Models\FinancialPosition;
 use App\Models\InventoryItem;
 use App\Models\JournalEntry;
 use App\Models\JournalLine;
@@ -42,20 +43,28 @@ class AccountingReportService
     }
 
     /**
-     * @return array{accounts: list<array{code: string, name: string, type: string, debit_cents: int, credit_cents: int, inventory_extension?: bool}>, totals: array{debit_cents: int, credit_cents: int}, inventory_at_cost_cents: int}
+     * @return array{accounts: list<array{code: string, name: string, type: string, debit_cents: int, credit_cents: int, inventory_extension?: bool, finance_rollup?: bool}>, totals: array{debit_cents: int, credit_cents: int}, inventory_at_cost_cents: int, member_loan_principal_cents: int, member_savings_deposits_cents: int}
      */
     public function trialBalance(CarbonInterface $asOf, bool $showZero = true): array
     {
         $lines = $this->linesForApprovedEntries(to: $asOf);
 
         $rows = $this->aggregateByAccount($lines);
-        $coa = $this->approvedAccountsById();
+        $coa = $this->reportableAccountsById();
+        $subLedgers = $this->memberSubLedgerChartAccountIds();
+        $loanSubLedgerIds = $subLedgers['loan'];
+        $savingsSubLedgerIds = $subLedgers['savings'];
+        $excludeSubLedger = array_fill_keys(array_merge($loanSubLedgerIds, $savingsSubLedgerIds), true);
 
         $accounts = [];
         $totalDebit = 0;
         $totalCredit = 0;
 
         foreach ($coa as $accountId => $account) {
+            if (isset($excludeSubLedger[$accountId])) {
+                continue;
+            }
+
             $row = $rows->get($accountId, [
                 'code' => $account['code'],
                 'name' => $account['name'],
@@ -134,6 +143,46 @@ class AccountingReportService
             $totalCredit += $inventoryAtCostCents;
         }
 
+        [$loanRollupDebit, $loanRollupCredit] = $this->rollupTrialBalanceForSubLedgerIds(
+            $rows,
+            $coa,
+            $loanSubLedgerIds,
+        );
+        [$savingsRollupDebit, $savingsRollupCredit] = $this->rollupTrialBalanceForSubLedgerIds(
+            $rows,
+            $coa,
+            $savingsSubLedgerIds,
+        );
+
+        $hasLoanCharts = $loanSubLedgerIds !== [];
+        $hasSavingsCharts = $savingsSubLedgerIds !== [];
+
+        if ($hasLoanCharts && ($showZero || $loanRollupDebit > 0 || $loanRollupCredit > 0)) {
+            $accounts[] = [
+                'code' => 'Σ-LOANS',
+                'name' => __('Total member loans (sub-ledger summary)'),
+                'type' => ChartAccount::TYPE_ASSET,
+                'debit_cents' => $loanRollupDebit,
+                'credit_cents' => $loanRollupCredit,
+                'finance_rollup' => true,
+            ];
+            $totalDebit += $loanRollupDebit;
+            $totalCredit += $loanRollupCredit;
+        }
+
+        if ($hasSavingsCharts && ($showZero || $savingsRollupDebit > 0 || $savingsRollupCredit > 0)) {
+            $accounts[] = [
+                'code' => 'Σ-SAVINGS',
+                'name' => __('Total member savings deposits (sub-ledger summary)'),
+                'type' => ChartAccount::TYPE_LIABILITY,
+                'debit_cents' => $savingsRollupDebit,
+                'credit_cents' => $savingsRollupCredit,
+                'finance_rollup' => true,
+            ];
+            $totalDebit += $savingsRollupDebit;
+            $totalCredit += $savingsRollupCredit;
+        }
+
         usort($accounts, fn (array $a, array $b) => strcmp($a['code'], $b['code']));
 
         return [
@@ -143,6 +192,8 @@ class AccountingReportService
                 'credit_cents' => $totalCredit,
             ],
             'inventory_at_cost_cents' => $inventoryAtCostCents,
+            'member_loan_principal_cents' => $loanRollupDebit - $loanRollupCredit,
+            'member_savings_deposits_cents' => $savingsRollupCredit - $savingsRollupDebit,
         ];
     }
 
@@ -154,7 +205,9 @@ class AccountingReportService
         $lines = $this->linesForApprovedEntries($from, $to);
 
         $rows = $this->aggregateByAccount($lines);
-        $coa = $this->approvedAccountsById();
+        $coa = $this->reportableAccountsById();
+        $subLedgers = $this->memberSubLedgerChartAccountIds();
+        $excludeSubLedger = array_fill_keys(array_merge($subLedgers['loan'], $subLedgers['savings']), true);
 
         $revenue = [];
         $expenses = [];
@@ -162,6 +215,10 @@ class AccountingReportService
         $totalExpense = 0;
 
         foreach ($coa as $accountId => $account) {
+            if (isset($excludeSubLedger[$accountId])) {
+                continue;
+            }
+
             $row = $rows->get($accountId, [
                 'code' => $account['code'],
                 'name' => $account['name'],
@@ -208,14 +265,18 @@ class AccountingReportService
     }
 
     /**
-     * @return array{assets: list<array{code: string, name: string, balance_cents: int}>, liabilities: list<array{code: string, name: string, balance_cents: int}>, equity: list<array{code: string, name: string, balance_cents: int}>, liabilities_plus_equity_cents: int, assets_total_cents: int}
+     * @return array{assets: list<array{code: string, name: string, balance_cents: int, finance_rollup?: bool}>, liabilities: list<array{code: string, name: string, balance_cents: int, finance_rollup?: bool}>, equity: list<array{code: string, name: string, balance_cents: int}>, liabilities_plus_equity_cents: int, assets_total_cents: int, member_loan_principal_cents: int, member_savings_deposits_cents: int}
      */
     public function balanceSheet(CarbonInterface $asOf, bool $showZero = true): array
     {
         $lines = $this->linesForApprovedEntries(to: $asOf);
 
         $rows = $this->aggregateByAccount($lines);
-        $coa = $this->approvedAccountsById();
+        $coa = $this->reportableAccountsById();
+        $subLedgers = $this->memberSubLedgerChartAccountIds();
+        $loanSubLedgerIds = $subLedgers['loan'];
+        $savingsSubLedgerIds = $subLedgers['savings'];
+        $excludeSubLedger = array_fill_keys(array_merge($loanSubLedgerIds, $savingsSubLedgerIds), true);
 
         $assets = [];
         $liabilities = [];
@@ -225,6 +286,10 @@ class AccountingReportService
         $equityTotal = 0;
 
         foreach ($coa as $accountId => $account) {
+            if (isset($excludeSubLedger[$accountId])) {
+                continue;
+            }
+
             $row = $rows->get($accountId, [
                 'code' => $account['code'],
                 'name' => $account['name'],
@@ -266,7 +331,36 @@ class AccountingReportService
         usort($liabilities, $sort);
         usort($equity, $sort);
 
-        $pl = $this->profitAndLoss(Carbon::parse('1970-01-01'), $asOf);
+        $loanNetReceivableCents = $this->rollupBalanceSheetAssetsForSubLedgerIds($rows, $coa, $loanSubLedgerIds);
+        $savingsNetLiabilityCents = $this->rollupBalanceSheetLiabilitiesForSubLedgerIds($rows, $coa, $savingsSubLedgerIds);
+
+        $hasLoanCharts = $loanSubLedgerIds !== [];
+        $hasSavingsCharts = $savingsSubLedgerIds !== [];
+
+        if ($hasLoanCharts && ($showZero || $loanNetReceivableCents !== 0)) {
+            $assets[] = [
+                'code' => 'Σ-LOANS',
+                'name' => __('Total member loans (sub-ledger summary)'),
+                'balance_cents' => $loanNetReceivableCents,
+                'finance_rollup' => true,
+            ];
+            $assetsTotal += $loanNetReceivableCents;
+        }
+
+        if ($hasSavingsCharts && ($showZero || $savingsNetLiabilityCents !== 0)) {
+            $liabilities[] = [
+                'code' => 'Σ-SAVINGS',
+                'name' => __('Total member savings deposits (sub-ledger summary)'),
+                'balance_cents' => $savingsNetLiabilityCents,
+                'finance_rollup' => true,
+            ];
+            $liabilitiesTotal += $savingsNetLiabilityCents;
+        }
+
+        usort($assets, $sort);
+        usort($liabilities, $sort);
+
+        $pl = $this->profitAndLoss(Carbon::parse('1970-01-01'), $asOf, $showZero);
 
         return [
             'assets' => $assets,
@@ -275,7 +369,136 @@ class AccountingReportService
             'retained_earnings_cents' => $pl['net_income_cents'],
             'assets_total_cents' => $assetsTotal,
             'liabilities_plus_equity_cents' => $liabilitiesTotal + $equityTotal + $pl['net_income_cents'],
+            'member_loan_principal_cents' => $loanNetReceivableCents,
+            'member_savings_deposits_cents' => $savingsNetLiabilityCents,
         ];
+    }
+
+    /**
+     * Chart accounts for member loan/savings GL sub-ledgers: code matches `financial_positions.account_number`.
+     *
+     * @return array{loan: list<int>, savings: list<int>}
+     */
+    protected function memberSubLedgerChartAccountIds(): array
+    {
+        $positions = FinancialPosition::query()
+            ->where('company_id', $this->companyId)
+            ->whereNotNull('account_number')
+            ->where('account_number', '!=', '')
+            ->get(['account_number', 'category']);
+
+        if ($positions->isEmpty()) {
+            return ['loan' => [], 'savings' => []];
+        }
+
+        $codes = $positions->pluck('account_number')->unique()->values();
+        $idByCode = ChartAccount::query()
+            ->where('company_id', $this->companyId)
+            ->whereIn('code', $codes)
+            ->pluck('id', 'code');
+
+        $loan = [];
+        $savings = [];
+        foreach ($positions as $position) {
+            $chartId = $idByCode->get($position->account_number);
+            if ($chartId === null) {
+                continue;
+            }
+            $id = (int) $chartId;
+            if ($position->category === FinancialPosition::CATEGORY_LOAN) {
+                $loan[] = $id;
+            } elseif ($position->category === FinancialPosition::CATEGORY_SAVINGS) {
+                $savings[] = $id;
+            }
+        }
+
+        return [
+            'loan' => array_values(array_unique($loan)),
+            'savings' => array_values(array_unique($savings)),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, array{code: string, name: string, type: string, debit_cents: int, credit_cents: int}>  $rows
+     * @param  Collection<int, array{code: string, name: string, type: string}>  $coa
+     * @return array{0: int, 1: int} debit column total, credit column total
+     */
+    protected function rollupTrialBalanceForSubLedgerIds(Collection $rows, Collection $coa, array $chartAccountIds): array
+    {
+        $totalDebit = 0;
+        $totalCredit = 0;
+
+        foreach ($chartAccountIds as $chartAccountId) {
+            $account = $coa->get($chartAccountId);
+            if ($account === null) {
+                continue;
+            }
+            $row = $rows->get($chartAccountId, [
+                'code' => $account['code'],
+                'name' => $account['name'],
+                'type' => $account['type'],
+                'debit_cents' => 0,
+                'credit_cents' => 0,
+            ]);
+            $net = (int) $row['debit_cents'] - (int) $row['credit_cents'];
+            if ($net > 0) {
+                $totalDebit += $net;
+            } elseif ($net < 0) {
+                $totalCredit += -$net;
+            }
+        }
+
+        return [$totalDebit, $totalCredit];
+    }
+
+    /**
+     * @param  Collection<int, array{code: string, name: string, type: string, debit_cents: int, credit_cents: int}>  $rows
+     * @param  Collection<int, array{code: string, name: string, type: string}>  $coa
+     */
+    protected function rollupBalanceSheetAssetsForSubLedgerIds(Collection $rows, Collection $coa, array $chartAccountIds): int
+    {
+        $sum = 0;
+        foreach ($chartAccountIds as $chartAccountId) {
+            $account = $coa->get($chartAccountId);
+            if ($account === null) {
+                continue;
+            }
+            $row = $rows->get($chartAccountId, [
+                'code' => $account['code'],
+                'name' => $account['name'],
+                'type' => $account['type'],
+                'debit_cents' => 0,
+                'credit_cents' => 0,
+            ]);
+            $sum += (int) $row['debit_cents'] - (int) $row['credit_cents'];
+        }
+
+        return $sum;
+    }
+
+    /**
+     * @param  Collection<int, array{code: string, name: string, type: string, debit_cents: int, credit_cents: int}>  $rows
+     * @param  Collection<int, array{code: string, name: string, type: string}>  $coa
+     */
+    protected function rollupBalanceSheetLiabilitiesForSubLedgerIds(Collection $rows, Collection $coa, array $chartAccountIds): int
+    {
+        $sum = 0;
+        foreach ($chartAccountIds as $chartAccountId) {
+            $account = $coa->get($chartAccountId);
+            if ($account === null) {
+                continue;
+            }
+            $row = $rows->get($chartAccountId, [
+                'code' => $account['code'],
+                'name' => $account['name'],
+                'type' => $account['type'],
+                'debit_cents' => 0,
+                'credit_cents' => 0,
+            ]);
+            $sum += (int) $row['credit_cents'] - (int) $row['debit_cents'];
+        }
+
+        return $sum;
     }
 
     /**
@@ -415,11 +638,10 @@ class AccountingReportService
     /**
      * @return Collection<int, array{code: string, name: string, type: string}>
      */
-    protected function approvedAccountsById(): Collection
+    protected function reportableAccountsById(): Collection
     {
         return ChartAccount::query()
             ->where('company_id', $this->companyId)
-            ->approvedForJournals()
             ->orderBy('code')
             ->get(['id', 'code', 'name', 'type'])
             ->mapWithKeys(fn (ChartAccount $a) => [
