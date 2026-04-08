@@ -12,6 +12,7 @@ import {
 } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
+import { Clock3, Mail, MapPin, Phone } from 'lucide-react';
 
 function stateMessage(portalState) {
     switch (portalState) {
@@ -27,6 +28,33 @@ function stateMessage(portalState) {
             return null;
     }
 }
+
+const contactChannels = [
+    {
+        title: 'Member support email',
+        detail: 'support@ledgerapp.com',
+        helper: 'General account and portal support.',
+        icon: Mail,
+    },
+    {
+        title: 'Support hotline',
+        detail: '+1 (555) 012-3400',
+        helper: 'Business hours response for urgent questions.',
+        icon: Phone,
+    },
+    {
+        title: 'Head office',
+        detail: '48 Market Street, Suite 210',
+        helper: 'Monrovia, Liberia',
+        icon: MapPin,
+    },
+    {
+        title: 'Working hours',
+        detail: 'Mon - Fri, 8:30 AM - 6:00 PM',
+        helper: 'West Africa Time (GMT)',
+        icon: Clock3,
+    },
+];
 
 export default function Home({
     payment_info,
@@ -206,6 +234,69 @@ export default function Home({
                         </section>
                     </div>
                 )}
+
+                <section className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 sm:p-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                                Contact Us
+                            </h3>
+                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                                Need help with your account, balances, or portal
+                                access? Reach our team directly.
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                            <a href="mailto:support@ledgerapp.com">Email support</a>
+                        </Button>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        {contactChannels.map((channel) => {
+                            const Icon = channel.icon;
+                            return (
+                                <div
+                                    key={channel.title}
+                                    className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/50"
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                                            <Icon className="h-4 w-4" />
+                                        </span>
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                                {channel.title}
+                                            </p>
+                                            <p className="text-sm text-slate-700 dark:text-slate-200">
+                                                {channel.detail}
+                                            </p>
+                                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                                {channel.helper}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
+
+                <footer className="rounded-2xl border border-slate-200/90 bg-white px-5 py-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 sm:px-6">
+                    <div className="flex flex-col gap-4 text-sm text-slate-600 dark:text-slate-300 sm:flex-row sm:items-center sm:justify-between">
+                        <p>© {new Date().getFullYear()} Ledger. All rights reserved.</p>
+                        <div className="flex flex-wrap items-center gap-4">
+                            <Link href={route('portal.home')} className="hover:underline">
+                                Overview
+                            </Link>
+                            <Link href={route('portal.passbook')} className="hover:underline">
+                                Passbook
+                            </Link>
+                            <Link href={route('portal.messages')} className="hover:underline">
+                                Messages
+                            </Link>
+                        </div>
+                    </div>
+                </footer>
             </PortalPageContainer>
         </AuthenticatedLayout>
     );

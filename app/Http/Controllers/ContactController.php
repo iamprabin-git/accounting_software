@@ -24,7 +24,7 @@ class ContactController extends Controller
         });
 
         return redirect()
-            ->route('home', absolute: false)
+            ->route('home')
             ->with('contactSuccess', true);
     }
 }

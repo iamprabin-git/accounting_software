@@ -44,7 +44,7 @@ export default function Login({
             : route('password.request');
 
     return (
-        <GuestLayout branding={loginBranding}>
+        <GuestLayout branding={loginBranding} showFallbackLogo={false}>
             <Head title={t('auth.login')} />
             <div className="mb-5">
                 <h1 className="text-xl font-semibold tracking-tight text-foreground">

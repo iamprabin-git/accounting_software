@@ -369,6 +369,13 @@ function ControlCenterSection({ controlCenter }) {
                             Review journals
                         </Link>
                     </Button>
+                    {page.props.auth.user?.role === 'company' ? (
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={route('company.team.index')}>
+                                Manual review login users
+                            </Link>
+                        </Button>
+                    ) : null}
                     {page.props.auth.user?.can_edit_accounting ? (
                         <Button size="sm" asChild>
                             <Link href={route('teller.day-close.create', q)}>

@@ -50,6 +50,10 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::GLOBAL_SEARCH_BEFORE,
                 fn (): View => view('filament.hooks.admin-topbar-context'),
             )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): View => view('filament.hooks.admin-auth-background'),
+            )
             ->resources([
                 CompanyResource::class,
                 PlatformAdminResource::class,

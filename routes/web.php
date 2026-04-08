@@ -23,6 +23,7 @@ use App\Http\Controllers\Banking\CoreBankingController;
 use App\Http\Controllers\Company\AccountingPeriodController;
 use App\Http\Controllers\Company\CompanyIntegrationController;
 use App\Http\Controllers\Company\CompanyProfileController;
+use App\Http\Controllers\Company\CompanyReviewController;
 use App\Http\Controllers\Company\CustomerMessageController;
 use App\Http\Controllers\Company\TeamUserController;
 use App\Http\Controllers\ContactController;
@@ -34,6 +35,8 @@ use App\Http\Controllers\Crm\CrmOpportunityController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Portal\MemberPortalController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReviewController;
+use App\Models\Review;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -43,12 +46,30 @@ Route::get('/', function () {
         'canRegister' => Route::has('register'),
         'googleAuthEnabled' => AuthenticatedSessionController::googleAuthConfigured(),
         'contactSuccess' => session('contactSuccess'),
+        'reviewSuccess' => session('reviewSuccess'),
+        'approvedReviews' => Review::query()
+            ->where('status', Review::STATUS_APPROVED)
+            ->latest('id')
+            ->limit(6)
+            ->get(['id', 'author_name', 'title', 'body', 'rating'])
+            ->map(fn (Review $review) => [
+                'id' => $review->id,
+                'name' => $review->author_name,
+                'role' => $review->title ?: 'Verified user',
+                'quote' => $review->body,
+                'rating' => (int) $review->rating,
+            ])
+            ->all(),
     ]);
 })->name('home');
 
 Route::post('/contact', [ContactController::class, 'store'])
     ->middleware('throttle:5,1')
     ->name('contact.store');
+
+Route::post('/reviews', [ReviewController::class, 'store'])
+    ->middleware(['auth', 'throttle:5,1'])
+    ->name('reviews.store');
 
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'customer.active'])
@@ -377,6 +398,12 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:company'])->pref
     Route::get('/{member}/edit', [TeamUserController::class, 'edit'])->name('edit');
     Route::put('/{member}', [TeamUserController::class, 'update'])->name('update');
     Route::delete('/{member}', [TeamUserController::class, 'destroy'])->name('destroy');
+});
+
+Route::middleware(['auth', 'verified', 'customer.active', 'role:company'])->prefix('company/reviews')->name('company.reviews.')->group(function () {
+    Route::get('/', [CompanyReviewController::class, 'index'])->name('index');
+    Route::post('/{review}/approve', [CompanyReviewController::class, 'approve'])->whereNumber('review')->name('approve');
+    Route::post('/{review}/reject', [CompanyReviewController::class, 'reject'])->whereNumber('review')->name('reject');
 });
 
 Route::middleware(['auth', 'customer.active'])->group(function () {
