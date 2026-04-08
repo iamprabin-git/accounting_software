@@ -59,6 +59,21 @@ export default function Index({
         );
     };
 
+    const handleApprovalAction = (id, action) => {
+        if (action === 'approve') {
+            postWithCompany('chart-accounts.approve', id);
+            return;
+        }
+        if (
+            action === 'reject' &&
+            confirm(
+                'Decline this proposed account? It will be removed if it is not used on any journal lines.',
+            )
+        ) {
+            postWithCompany('chart-accounts.reject', id);
+        }
+    };
+
     return (
         <AuthenticatedLayout
             header={
@@ -95,9 +110,11 @@ export default function Index({
             <div className="py-8">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
                     <InputError message={errors.delete} className="mb-4" />
+                    <InputError message={errors.approve} className="mb-4" />
                     <InputError message={errors.reject} className="mb-4" />
+                    <InputError message={errors.status} className="mb-4" />
 
-                    <div className="overflow-hidden bg-white shadow sm:rounded-lg">
+                    <div className="overflow-x-auto bg-white shadow sm:rounded-lg">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
@@ -169,38 +186,30 @@ export default function Index({
                                                 {row.approval_status ===
                                                     'pending' &&
                                                 canApproveChartAccounts ? (
-                                                    <>
-                                                        <button
-                                                            type="button"
-                                                            className="text-green-700 hover:text-green-900"
-                                                            onClick={() =>
-                                                                postWithCompany(
-                                                                    'chart-accounts.approve',
-                                                                    row.id,
-                                                                )
-                                                            }
-                                                        >
+                                                    <select
+                                                        defaultValue=""
+                                                        className="rounded-md border-gray-300 py-1 text-xs"
+                                                        onChange={(e) => {
+                                                            const v =
+                                                                e.target.value;
+                                                            if (!v) return;
+                                                            handleApprovalAction(
+                                                                row.id,
+                                                                v,
+                                                            );
+                                                            e.target.value = '';
+                                                        }}
+                                                    >
+                                                        <option value="">
+                                                            Approval action...
+                                                        </option>
+                                                        <option value="approve">
                                                             Approve
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="ms-4 text-amber-800 hover:text-amber-950"
-                                                            onClick={() => {
-                                                                if (
-                                                                    confirm(
-                                                                        'Decline this proposed account? It will be removed if it is not used on any journal lines.',
-                                                                    )
-                                                                ) {
-                                                                    postWithCompany(
-                                                                        'chart-accounts.reject',
-                                                                        row.id,
-                                                                    );
-                                                                }
-                                                            }}
-                                                        >
-                                                            Decline
-                                                        </button>
-                                                    </>
+                                                        </option>
+                                                        <option value="reject">
+                                                            Reject
+                                                        </option>
+                                                    </select>
                                                 ) : null}
                                                 {canManageChartAccounts ? (
                                                     <>

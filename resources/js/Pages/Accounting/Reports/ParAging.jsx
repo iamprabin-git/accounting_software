@@ -1,5 +1,6 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import PrintLetterhead from '@/Components/PrintLetterhead';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 
@@ -70,28 +71,34 @@ export default function ParAging({
                     <PrintLetterhead letterhead={letterhead} />
 
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 print:hidden">
-                        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                        <Card>
+                            <CardContent className="p-4">
                             <p className="text-xs font-medium uppercase text-gray-500">
                                 Outstanding principal
                             </p>
                             <p className="mt-1 text-lg font-semibold font-mono">
                                 {money(summary.total_outstanding_cents)}
                             </p>
-                        </div>
-                        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
                             <p className="text-xs font-medium uppercase text-gray-500">
                                 At-risk principal (rough PAR)
                             </p>
                             <p className="mt-1 text-lg font-semibold font-mono">
                                 {money(summary.at_risk_cents)}
                             </p>
-                        </div>
-                        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
                             <p className="text-xs font-medium uppercase text-gray-500">
                                 PAR ratio
                             </p>
                             <p className="mt-1 text-lg font-semibold">{parPct}%</p>
-                        </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
                     <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">

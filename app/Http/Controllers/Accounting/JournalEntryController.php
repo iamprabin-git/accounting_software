@@ -603,11 +603,16 @@ class JournalEntryController extends Controller
         $this->authorize('create', JournalEntry::class);
 
         $company = $this->accountingCompany($request);
-        $businessDate = (string) ($request->input('date') ?: Carbon::today()->toDateString());
+        $activeOpenDayDate = TellerDayClose::query()
+            ->where('company_id', $company->id)
+            ->where('day_status', TellerDayClose::STATUS_OPEN)
+            ->latest('close_date')
+            ->value('close_date');
+        $businessDate = (string) ($request->input('date')
+            ?: ($activeOpenDayDate ? Carbon::parse($activeOpenDayDate)->toDateString() : Carbon::today()->toDateString()));
 
         $openDay = TellerDayClose::query()
             ->where('company_id', $company->id)
-            ->where('user_id', $request->user()->id)
             ->whereDate('close_date', $businessDate)
             ->where('day_status', TellerDayClose::STATUS_OPEN)
             ->exists();
@@ -686,7 +691,6 @@ class JournalEntryController extends Controller
 
         $openDay = TellerDayClose::query()
             ->where('company_id', $company->id)
-            ->where('user_id', $request->user()->id)
             ->whereDate('close_date', $transactionDate)
             ->where('day_status', TellerDayClose::STATUS_OPEN)
             ->first();

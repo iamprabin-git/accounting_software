@@ -25,7 +25,7 @@ class DebtorForm
                     ->maxLength(64)
                     ->label('Reference'),
                 TextInput::make('balance')
-                    ->label('Balance owed (dollars)')
+                    ->label('Balance owed (NPR)')
                     ->numeric()
                     ->default(0)
                     ->required(),

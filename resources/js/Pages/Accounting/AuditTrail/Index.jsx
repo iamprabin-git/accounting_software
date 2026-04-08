@@ -1,10 +1,13 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
 
 export default function Index({
     logs,
     filters,
+    action_options = [],
+    summary = {},
     companies,
     currentCompanyId,
     integrity,
@@ -12,20 +15,111 @@ export default function Index({
 }) {
     const user = usePage().props.auth.user ?? {};
     const isAdmin = user.role === 'admin';
+    const presetStorageKey = useMemo(
+        () => `audit-filter-presets:${currentCompanyId || 'default'}`,
+        [currentCompanyId],
+    );
+    const [presetName, setPresetName] = useState('');
+    const [presetRefresh, setPresetRefresh] = useState(0);
 
     const query = {
         ...(filters?.action ? { action: filters.action } : {}),
+        ...(filters?.action_like ? { action_like: filters.action_like } : {}),
         ...(filters?.from_date ? { from_date: filters.from_date } : {}),
         ...(filters?.to_date ? { to_date: filters.to_date } : {}),
         ...(filters?.journal_entry_id
             ? { journal_entry_id: filters.journal_entry_id }
             : {}),
+        ...(filters?.actor_name ? { actor_name: filters.actor_name } : {}),
+        ...(filters?.hash ? { hash: filters.hash } : {}),
     };
 
     const withCompany = (params = {}) =>
         isAdmin && currentCompanyId
             ? { ...params, company_id: currentCompanyId }
             : params;
+
+    const filterPayload = {
+        action: filters?.action ?? '',
+        action_like: filters?.action_like ?? '',
+        journal_entry_id: filters?.journal_entry_id ?? '',
+        from_date: filters?.from_date ?? '',
+        to_date: filters?.to_date ?? '',
+        actor_name: filters?.actor_name ?? '',
+        hash: filters?.hash ?? '',
+    };
+
+    const savedPresets = useMemo(() => {
+        try {
+            const raw = window.localStorage.getItem(presetStorageKey);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    }, [presetStorageKey, presetRefresh]);
+
+    const savePreset = () => {
+        const name = presetName.trim();
+        if (!name) return;
+        try {
+            const next = [
+                {
+                    name,
+                    filters: filterPayload,
+                },
+                ...savedPresets.filter((p) => p?.name !== name),
+            ].slice(0, 12);
+            window.localStorage.setItem(presetStorageKey, JSON.stringify(next));
+            setPresetName('');
+            setPresetRefresh((n) => n + 1);
+        } catch {
+            // no-op if storage is unavailable
+        }
+    };
+
+    const applyPreset = (preset) => {
+        const f = preset?.filters ?? {};
+        router.get(
+            route('audit-trail.index', withCompany({})),
+            Object.fromEntries(
+                Object.entries({
+                    action: f.action || '',
+                    action_like: f.action_like || '',
+                    journal_entry_id: f.journal_entry_id || '',
+                    from_date: f.from_date || '',
+                    to_date: f.to_date || '',
+                    actor_name: f.actor_name || '',
+                    hash: f.hash || '',
+                }).filter(([, v]) => v !== ''),
+            ),
+        );
+    };
+
+    const builtInPresets = [
+        {
+            name: 'Integrity incidents',
+            filters: { action_like: 'audit.integrity_' },
+        },
+        {
+            name: 'Approval actions',
+            filters: { action_like: 'approve' },
+        },
+        {
+            name: 'Journal-specific events',
+            filters: { action_like: 'journal.' },
+        },
+    ];
+
+    const deletePreset = (name) => {
+        try {
+            const next = savedPresets.filter((p) => p?.name !== name);
+            window.localStorage.setItem(presetStorageKey, JSON.stringify(next));
+            setPresetRefresh((n) => n + 1);
+        } catch {
+            // no-op
+        }
+    };
 
     return (
         <AuthenticatedLayout
@@ -69,18 +163,50 @@ export default function Index({
 
             <div className="py-8">
                 <div className="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="cbs-surface p-4">
+                            <p className="text-xs text-gray-500">Events today</p>
+                            <p className="text-2xl font-semibold">
+                                {summary.today_events ?? 0}
+                            </p>
+                        </div>
+                        <div className="cbs-surface p-4">
+                            <p className="text-xs text-gray-500">
+                                Integrity failures
+                            </p>
+                            <p className="text-2xl font-semibold">
+                                {summary.failed_integrity_events ?? 0}
+                            </p>
+                        </div>
+                        <div className="cbs-surface p-4">
+                            <p className="text-xs text-gray-500">
+                                Unique actors (7d)
+                            </p>
+                            <p className="text-2xl font-semibold">
+                                {summary.unique_actors_7d ?? 0}
+                            </p>
+                        </div>
+                    </div>
+
                     <form
-                        className="grid gap-3 rounded bg-white p-4 shadow sm:grid-cols-5"
+                        className="grid gap-3 rounded bg-white p-4 shadow sm:grid-cols-8"
                         onSubmit={(e) => {
                             e.preventDefault();
                             const fd = new FormData(e.currentTarget);
                             const next = {
                                 action: (fd.get('action') || '').toString(),
+                                action_like: (
+                                    fd.get('action_like') || ''
+                                ).toString(),
                                 from_date: (fd.get('from_date') || '').toString(),
                                 to_date: (fd.get('to_date') || '').toString(),
                                 journal_entry_id: (
                                     fd.get('journal_entry_id') || ''
                                 ).toString(),
+                                actor_name: (
+                                    fd.get('actor_name') || ''
+                                ).toString(),
+                                hash: (fd.get('hash') || '').toString(),
                             };
                             router.get(
                                 route('audit-trail.index', withCompany({})),
@@ -92,10 +218,22 @@ export default function Index({
                             );
                         }}
                     >
-                        <input
+                        <select
                             name="action"
                             defaultValue={filters?.action ?? ''}
-                            placeholder="Action"
+                            className="rounded-md border-gray-300 text-sm"
+                        >
+                            <option value="">All actions</option>
+                            {action_options.map((a) => (
+                                <option key={a} value={a}>
+                                    {a}
+                                </option>
+                            ))}
+                        </select>
+                        <input
+                            name="action_like"
+                            defaultValue={filters?.action_like ?? ''}
+                            placeholder="Action contains…"
                             className="rounded-md border-gray-300 text-sm"
                         />
                         <input
@@ -116,13 +254,95 @@ export default function Index({
                             defaultValue={filters?.to_date ?? ''}
                             className="rounded-md border-gray-300 text-sm"
                         />
+                        <input
+                            name="actor_name"
+                            defaultValue={filters?.actor_name ?? ''}
+                            placeholder="Actor name"
+                            className="rounded-md border-gray-300 text-sm"
+                        />
+                        <input
+                            name="hash"
+                            defaultValue={filters?.hash ?? ''}
+                            placeholder="Hash contains…"
+                            className="rounded-md border-gray-300 text-sm"
+                        />
                         <button className="rounded-md bg-gray-800 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700">
                             Apply filters
                         </button>
                     </form>
+                    <div className="rounded bg-white p-4 shadow">
+                        <p className="text-sm font-semibold text-gray-900">
+                            Save this filter preset
+                        </p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <input
+                                value={presetName}
+                                onChange={(e) => setPresetName(e.target.value)}
+                                placeholder="Preset name (e.g. Integrity incidents)"
+                                className="rounded-md border-gray-300 text-sm"
+                            />
+                            <button
+                                type="button"
+                                onClick={savePreset}
+                                className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                            >
+                                Save preset
+                            </button>
+                        </div>
+                        <p className="mt-3 text-xs font-semibold text-gray-700">
+                            Built-in presets
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {builtInPresets.map((p) => (
+                                <button
+                                    key={p.name}
+                                    type="button"
+                                    className="rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                                    onClick={() => applyPreset(p)}
+                                >
+                                    {p.name}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="mt-3 text-xs font-semibold text-gray-700">
+                            Your saved presets
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {savedPresets.length === 0 ? (
+                                <p className="text-xs text-gray-500">
+                                    No saved presets yet.
+                                </p>
+                            ) : (
+                                savedPresets.map((p) => (
+                                    <div
+                                        key={p.name}
+                                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1"
+                                    >
+                                        <button
+                                            type="button"
+                                            className="text-xs font-medium text-indigo-700 hover:text-indigo-900"
+                                            onClick={() => applyPreset(p)}
+                                        >
+                                            {p.name}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="text-xs text-gray-500 hover:text-red-700"
+                                            onClick={() =>
+                                                deletePreset(p.name)
+                                            }
+                                            aria-label={`Delete preset ${p.name}`}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
 
                     <div
-                        className={`rounded border p-4 ${
+                        className={`cbs-surface border p-4 ${
                             integrity?.valid
                                 ? 'border-green-200 bg-green-50'
                                 : 'border-red-200 bg-red-50'
@@ -179,6 +399,9 @@ export default function Index({
                                     <th className="px-3 py-2 text-left">Journal</th>
                                     <th className="px-3 py-2 text-left">IP</th>
                                     <th className="px-3 py-2 text-left">Hash</th>
+                                    <th className="px-3 py-2 text-left">
+                                        Previous
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -215,6 +438,9 @@ export default function Index({
                                         </td>
                                         <td className="px-3 py-2 font-mono text-xs">
                                             {row.event_hash}
+                                        </td>
+                                        <td className="px-3 py-2 font-mono text-xs">
+                                            {row.previous_event_hash || '—'}
                                         </td>
                                     </tr>
                                 ))}

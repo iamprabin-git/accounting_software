@@ -1,5 +1,7 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import PrintLetterhead from '@/Components/PrintLetterhead';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { usePrintWhenReady } from '@/hooks/usePrintWhenReady';
 import { moneyFromCents } from '@/utils/money';
@@ -57,11 +59,10 @@ export default function CashFlow({
                             routeParams={{}}
                             query={{ from: fromD, to: toD }}
                         />
-                        <Link
-                            href={printHref}
-                            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-50"
-                        >
+                        <Link href={printHref}>
+                            <Button variant="outline" size="sm">
                             Print
+                            </Button>
                         </Link>
                     </div>
                 </div>
@@ -98,12 +99,9 @@ export default function CashFlow({
                                 className="mt-1 rounded-md border-gray-300"
                             />
                         </div>
-                        <button
-                            type="submit"
-                            className="rounded-md bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"
-                        >
+                        <Button type="submit" size="sm">
                             Apply
-                        </button>
+                        </Button>
                     </form>
 
                     <div className="mb-4 hidden print:block">
@@ -115,7 +113,8 @@ export default function CashFlow({
                         </p>
                     </div>
 
-                    <div className="space-y-6 rounded bg-white p-6 shadow print:shadow-none">
+                    <Card className="print:shadow-none">
+                        <CardContent className="space-y-6 p-6">
                         <p className="text-sm text-gray-600">
                             This summary uses the same approved journal activity
                             as the general ledger. Net income matches the P&amp;L
@@ -135,7 +134,8 @@ export default function CashFlow({
                             <h3 className="font-semibold text-gray-900">
                                 Cash and bank accounts
                             </h3>
-                            <table className="mt-2 w-full text-sm">
+                            <div className="overflow-x-auto">
+                            <table className="mt-2 w-full min-w-[640px] text-sm">
                                 <thead>
                                     <tr className="text-left text-gray-600">
                                         <th className="py-2">Account</th>
@@ -187,8 +187,10 @@ export default function CashFlow({
                                     )}
                                 </tbody>
                             </table>
+                            </div>
                         </section>
-                    </div>
+                        </CardContent>
+                    </Card>
 
                     <p className="mt-4 text-sm print:hidden">
                         <Link

@@ -153,6 +153,7 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:admin,company,st
         Route::get('/members/create', [MemberController::class, 'create'])->name('members.create');
         Route::post('/members', [MemberController::class, 'store'])->name('members.store');
         Route::get('/members/{member}/ledger', [MemberLedgerController::class, 'show'])->whereNumber('member')->name('members.ledger');
+        Route::get('/members/{member}/products', [MemberController::class, 'products'])->whereNumber('member')->name('members.products');
         Route::get('/members/{member}/edit', [MemberController::class, 'edit'])->whereNumber('member')->name('members.edit');
         Route::put('/members/{member}', [MemberController::class, 'update'])->whereNumber('member')->name('members.update');
         Route::post('/members/{member}/approve', [MemberController::class, 'approve'])->whereNumber('member')->name('members.approve');
@@ -161,12 +162,7 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:admin,company,st
         Route::get('/member-groups', [MemberGroupController::class, 'index'])->name('member-groups.index');
         Route::post('/member-groups', [MemberGroupController::class, 'store'])->name('member-groups.store');
         Route::get('/member-groups/{group}', [MemberGroupController::class, 'show'])->whereNumber('group')->name('member-groups.show');
-        Route::post('/member-groups/{group}/deposit-batches', [MemberGroupController::class, 'postDepositBatch'])
-            ->whereNumber('group')
-            ->name('member-groups.deposit-batches.store');
-        Route::post('/member-groups/{group}/loan-collection-batches', [MemberGroupController::class, 'postLoanCollectionBatch'])
-            ->whereNumber('group')
-            ->name('member-groups.loan-collection-batches.store');
+        Route::put('/member-groups/{group}/members', [MemberGroupController::class, 'syncMembers'])->whereNumber('group')->name('member-groups.members.sync');
     });
 
     Route::middleware(['company.feature:members', 'company.feature:finance'])->group(function () {

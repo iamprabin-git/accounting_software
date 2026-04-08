@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesAccountingCompany;
 use App\Models\TellerDayClose;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,11 +19,8 @@ class WorkspaceController extends Controller
         abort_unless($user && $user->canEditAccounting(), 403);
 
         $company = $this->accountingCompany($request);
-        $today = Carbon::today()->toDateString();
         $tellerDayOpenToday = TellerDayClose::query()
             ->where('company_id', $company->id)
-            ->where('user_id', $user->id)
-            ->whereDate('close_date', $today)
             ->where('day_status', TellerDayClose::STATUS_OPEN)
             ->exists();
 

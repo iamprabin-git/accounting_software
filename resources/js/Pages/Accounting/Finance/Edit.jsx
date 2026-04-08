@@ -1,8 +1,9 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import {
     annualInterestCents,
@@ -106,9 +107,11 @@ export default function Edit({
 
             <div className="py-8">
                 <div className="mx-auto max-w-2xl sm:px-6 lg:px-8">
+                    <Card>
+                        <CardContent className="p-6 sm:p-8">
                     <form
                         onSubmit={submit}
-                        className="space-y-6 bg-white p-6 shadow sm:rounded-lg"
+                        className="space-y-6"
                     >
                         {isAdmin && (
                             <input
@@ -206,7 +209,7 @@ export default function Edit({
                         <div>
                             <InputLabel
                                 htmlFor="principal"
-                                value="Principal / balance (dollars)"
+                                value="Principal / balance (NPR)"
                             />
                             <TextInput
                                 id="principal"
@@ -327,10 +330,11 @@ export default function Edit({
                             </div>
                         )}
 
-                        <div className="flex gap-4">
-                            <PrimaryButton disabled={processing}>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Button type="submit" disabled={processing}>
                                 Update
-                            </PrimaryButton>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
                             <Link
                                 href={route('finance.positions.index', {
                                     category,
@@ -338,12 +342,14 @@ export default function Edit({
                                         ? currentCompanyId
                                         : undefined,
                                 })}
-                                className="inline-flex items-center text-sm text-gray-600 underline"
                             >
                                 Cancel
                             </Link>
+                            </Button>
                         </div>
                     </form>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AuthenticatedLayout>

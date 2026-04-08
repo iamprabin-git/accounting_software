@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ChartAccount;
 use App\Models\Company;
 use App\Models\JournalEntry;
+use App\Models\TellerDayClose;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -51,11 +52,29 @@ class JournalCashEntryTest extends TestCase
         return [$cash, $sales, $expense];
     }
 
+    private function openTellerDay(Company $company, User $owner, string $date): void
+    {
+        TellerDayClose::query()->create([
+            'company_id' => $company->id,
+            'user_id' => $owner->id,
+            'close_date' => $date,
+            'day_status' => TellerDayClose::STATUS_OPEN,
+            'opening_cash_cents' => 0,
+            'counted_cash_cents' => 0,
+            'expected_cash_cents' => 0,
+            'system_cash_cents' => 0,
+            'cash_received_cents' => 0,
+            'closing_error_cents' => 0,
+            'started_at' => now(),
+        ]);
+    }
+
     public function test_cash_in_debits_cash_and_credits_counterparts(): void
     {
         $company = Company::factory()->create();
         $owner = User::factory()->companyOwner($company)->create();
         [$cash, $sales] = $this->accounts($company, $owner);
+        $this->openTellerDay($company, $owner, '2026-04-04');
 
         $this->actingAs($owner)->post(route('journals.store-cash-in', absolute: false), [
             'transaction_date' => '2026-04-04',
@@ -77,6 +96,7 @@ class JournalCashEntryTest extends TestCase
         $company = Company::factory()->create();
         $owner = User::factory()->companyOwner($company)->create();
         [$cash, , $expense] = $this->accounts($company, $owner);
+        $this->openTellerDay($company, $owner, '2026-04-04');
 
         $this->actingAs($owner)->post(route('journals.store-cash-out', absolute: false), [
             'transaction_date' => '2026-04-04',
@@ -97,6 +117,7 @@ class JournalCashEntryTest extends TestCase
         $company = Company::factory()->create();
         $owner = User::factory()->companyOwner($company)->create();
         [$cash] = $this->accounts($company, $owner);
+        $this->openTellerDay($company, $owner, '2026-04-04');
 
         $this->actingAs($owner)->post(route('journals.store-cash-in', absolute: false), [
             'transaction_date' => '2026-04-04',

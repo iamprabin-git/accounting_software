@@ -9,6 +9,7 @@ import {
     CardTitle,
 } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { moneyFromCents } from '@/utils/money';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     BarChart3,
@@ -281,6 +282,249 @@ function AuditIntegrityTrendSection({ auditIntegrityTrend }) {
     );
 }
 
+function ControlCenterSection({ controlCenter }) {
+    const page = usePage();
+    if (!controlCenter) {
+        return null;
+    }
+
+    const companyId = controlCenter.admin_company_id ?? undefined;
+    const q = companyId ? { company_id: companyId } : {};
+    const teller = controlCenter.teller ?? {};
+    const pending = controlCenter.pending ?? {};
+
+    return (
+        <Card className="cbs-surface border-indigo-200/70 bg-indigo-50/40 dark:border-indigo-900/40 dark:bg-indigo-950/20">
+            <CardHeader>
+                <CardTitle>Control Center</CardTitle>
+                <CardDescription>
+                    Daily controls, pending approvals, and teller readiness.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-4">
+                    <div className="rounded-md border bg-background/70 p-3">
+                        <p className="text-xs text-muted-foreground">
+                            Total pending
+                        </p>
+                        <p className="text-xl font-semibold">
+                            {pending.total ?? 0}
+                        </p>
+                    </div>
+                    <div className="rounded-md border bg-background/70 p-3">
+                        <p className="text-xs text-muted-foreground">Members</p>
+                        <p className="text-xl font-semibold">
+                            {pending.members ?? 0}
+                        </p>
+                    </div>
+                    <div className="rounded-md border bg-background/70 p-3">
+                        <p className="text-xs text-muted-foreground">
+                            Chart accounts
+                        </p>
+                        <p className="text-xl font-semibold">
+                            {pending.chart_accounts ?? 0}
+                        </p>
+                    </div>
+                    <div className="rounded-md border bg-background/70 p-3">
+                        <p className="text-xs text-muted-foreground">
+                            Journal approvals
+                        </p>
+                        <p className="text-xl font-semibold">
+                            {pending.journals ?? 0}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="rounded-md border bg-background/70 p-3">
+                    <p className="text-sm font-medium">Teller day (today)</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        Status:{' '}
+                        <span className="font-medium text-foreground">
+                            {teller.is_open ? 'Open' : 'Not started'}
+                        </span>
+                        {teller.close_date ? ` · ${teller.close_date}` : ''}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        System cash: {moneyFromCents(teller.system_cash_cents || 0)}
+                        {' · '}Cash received:{' '}
+                        {moneyFromCents(teller.cash_received_cents || 0)}
+                        {' · '}Variance:{' '}
+                        {moneyFromCents(teller.closing_error_cents || 0)}
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={route('members.index', q)}>
+                            Review members
+                        </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={route('chart-accounts.index', q)}>
+                            Review chart accounts
+                        </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={route('journals.index', q)}>
+                            Review journals
+                        </Link>
+                    </Button>
+                    {page.props.auth.user?.can_edit_accounting ? (
+                        <Button size="sm" asChild>
+                            <Link href={route('teller.day-close.create', q)}>
+                                Open teller controls
+                            </Link>
+                        </Button>
+                    ) : null}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function SystemHealthSection({ systemHealth }) {
+    if (!systemHealth) {
+        return null;
+    }
+
+    const tb = systemHealth.trial_balance ?? {};
+    const lock = systemHealth.period_lock ?? {};
+    const companyId = systemHealth.admin_company_id ?? undefined;
+    const q = companyId ? { company_id: companyId } : {};
+
+    return (
+        <Card className="cbs-surface border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <CardHeader>
+                <CardTitle>System Health Checks</CardTitle>
+                <CardDescription>
+                    Trial balance integrity and accounting period lock posture.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-md border bg-background/70 p-3">
+                        <p className="text-sm font-medium">Trial balance check</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Debit: {moneyFromCents(tb.debit_cents || 0)} · Credit:{' '}
+                            {moneyFromCents(tb.credit_cents || 0)}
+                        </p>
+                        <p
+                            className={`mt-1 text-xs font-medium ${
+                                tb.is_balanced
+                                    ? 'text-emerald-700'
+                                    : 'text-red-700'
+                            }`}
+                        >
+                            {tb.is_balanced
+                                ? 'Balanced'
+                                : `Out of balance by ${moneyFromCents(
+                                      Math.abs(tb.delta_cents || 0),
+                                  )}`}
+                        </p>
+                    </div>
+                    <div className="rounded-md border bg-background/70 p-3">
+                        <p className="text-sm font-medium">Accounting period lock</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {lock.is_set
+                                ? `Locked through ${lock.lock_date}`
+                                : 'No lock date set'}
+                            {lock.last_close_type
+                                ? ` · Last close: ${lock.last_close_type}`
+                                : ''}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {lock.lock_reason || 'No lock reason recorded'}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={route('reports.trial-balance', q)}>
+                            Open trial balance
+                        </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={route('reports.balance-sheet', q)}>
+                            Open balance sheet
+                        </Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={route('company.profile.edit', q)}>
+                            Period settings
+                        </Link>
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ApprovalInboxSection({ approvalInbox }) {
+    if (!approvalInbox) {
+        return null;
+    }
+
+    const companyId = approvalInbox.admin_company_id ?? undefined;
+    const q = companyId ? { company_id: companyId } : {};
+
+    const List = ({ title, rows = [], href }) => (
+        <div className="rounded-md border bg-background/70 p-3">
+            <div className="mb-2 flex items-center justify-between">
+                <p className="text-sm font-medium">{title}</p>
+                <Button variant="ghost" size="sm" asChild>
+                    <Link href={href}>Open</Link>
+                </Button>
+            </div>
+            {rows.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No pending items.</p>
+            ) : (
+                <ul className="space-y-1">
+                    {rows.map((r) => (
+                        <li
+                            key={`${title}-${r.id}`}
+                            className="text-xs text-muted-foreground"
+                        >
+                            <span className="font-medium text-foreground">
+                                {r.label}
+                            </span>{' '}
+                            · {formatShortDate(r.created_at)}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+
+    return (
+        <Card className="cbs-surface border-violet-200/70 bg-violet-50/40 dark:border-violet-900/40 dark:bg-violet-950/20">
+            <CardHeader>
+                <CardTitle>Approval Inbox</CardTitle>
+                <CardDescription>
+                    Centralized queue of oldest pending approvals across modules.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-3">
+                <List
+                    title="Members"
+                    rows={approvalInbox.members}
+                    href={route('members.index', q)}
+                />
+                <List
+                    title="Chart accounts"
+                    rows={approvalInbox.chart_accounts}
+                    href={route('chart-accounts.index', q)}
+                />
+                <List
+                    title="Journals"
+                    rows={approvalInbox.journals}
+                    href={route('journals.index', q)}
+                />
+            </CardContent>
+        </Card>
+    );
+}
+
 function portalHint(state, t) {
     if (state === 'ok') {
         return null;
@@ -296,6 +540,9 @@ export default function Dashboard({
     approvalSla,
     auditIntegrityAlert,
     auditIntegrityTrend,
+    controlCenter,
+    systemHealth,
+    approvalInbox,
 }) {
     const { t } = useTranslation();
     const page = usePage();
@@ -563,6 +810,9 @@ export default function Dashboard({
                     </div>
 
                     <FinancialRatiosSection financialRatios={financialRatios} />
+                    <ControlCenterSection controlCenter={controlCenter} />
+                    <SystemHealthSection systemHealth={systemHealth} />
+                    <ApprovalInboxSection approvalInbox={approvalInbox} />
 
                     {approvalSla ? (
                         <Card className="cbs-surface">

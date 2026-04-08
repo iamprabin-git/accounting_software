@@ -66,7 +66,7 @@ export default function Index({
                         </span>
                     </div>
 
-                    <div className="overflow-hidden bg-white shadow sm:rounded-lg">
+                    <div className="overflow-x-auto bg-white shadow sm:rounded-lg">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>

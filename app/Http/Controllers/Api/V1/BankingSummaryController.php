@@ -41,7 +41,9 @@ class BankingSummaryController extends Controller
                     ->where('company_id', $companyId)
                     ->where('status', JournalEntry::STATUS_PENDING)
                     ->count(),
-                'member_groups' => MemberGroup::query()->where('company_id', $companyId)->count(),
+                'member_groups' => MemberGroup::query()
+                    ->where('company_id', $companyId)
+                    ->count(),
             ],
             'meta' => [
                 'company_id' => $companyId,

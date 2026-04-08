@@ -1,5 +1,7 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import PrintLetterhead from '@/Components/PrintLetterhead';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { usePrintWhenReady } from '@/hooks/usePrintWhenReady';
 import { moneyFromCents } from '@/utils/money';
@@ -66,11 +68,10 @@ export default function GeneralLedger({
                                 account_id: accountId,
                             }}
                         />
-                        <Link
-                            href={printHref}
-                            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-50"
-                        >
+                        <Link href={printHref}>
+                            <Button variant="outline" size="sm">
                             Print
+                            </Button>
                         </Link>
                     </div>
                 </div>
@@ -123,12 +124,9 @@ export default function GeneralLedger({
                                 className="mt-1 rounded-md border-gray-300"
                             />
                         </div>
-                        <button
-                            type="submit"
-                            className="rounded-md bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"
-                        >
+                        <Button type="submit" size="sm">
                             Apply
-                        </button>
+                        </Button>
                     </form>
 
                     <div className="mb-4 hidden print:block">
@@ -152,7 +150,9 @@ export default function GeneralLedger({
                         </p>
                     )}
 
-                    <div className="overflow-hidden rounded bg-white shadow print:shadow-none">
+                    <Card className="overflow-hidden print:shadow-none">
+                        <CardContent className="p-0">
+                    <div className="overflow-x-auto">
                         <table className="min-w-full divide-y text-sm">
                             <thead className="bg-gray-50 print:bg-white">
                                 <tr>
@@ -222,6 +222,8 @@ export default function GeneralLedger({
                             </tbody>
                         </table>
                     </div>
+                        </CardContent>
+                    </Card>
 
                     <p className="mt-4 text-sm print:hidden">
                         <Link

@@ -26,14 +26,14 @@ class FinancialPositionsTable
                     ->searchable(),
                 TextColumn::make('principal_cents')
                     ->label('Principal')
-                    ->money('USD', divideBy: 100),
+                    ->money('NPR', divideBy: 100),
                 TextColumn::make('annual_interest_rate_percent')
                     ->label('Rate %')
                     ->numeric(decimalPlaces: 4),
                 TextColumn::make('annual_interest')
                     ->label('Interest / yr')
                     ->getStateUsing(fn (FinancialPosition $record): int => $record->annualInterestCents())
-                    ->money('USD', divideBy: 100),
+                    ->money('NPR', divideBy: 100),
             ])
             ->filters([
                 SelectFilter::make('company_id')

@@ -1,5 +1,6 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import PrintLetterhead from '@/Components/PrintLetterhead';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 
@@ -27,10 +28,11 @@ export default function SavingsAccounts({
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 className="text-xl font-semibold text-gray-800">
-                            Savings accounts list
+                            Statement of savings
                         </h2>
                         <p className="mt-1 text-sm text-gray-600">
-                            Total savings and individual member savings accounts.
+                            Portfolio total and each savings account with member
+                            identity and balance (detail for financial statements).
                         </p>
                     </div>
                     <CompanyPicker
@@ -43,7 +45,7 @@ export default function SavingsAccounts({
                 </div>
             }
         >
-            <Head title="Savings accounts report" />
+            <Head title="Statement of savings" />
 
             <div className="py-8">
                 <div className="mx-auto max-w-6xl space-y-6 sm:px-6 lg:px-8">
@@ -58,22 +60,26 @@ export default function SavingsAccounts({
                     <PrintLetterhead letterhead={letterhead} />
 
                     <div className="grid gap-4 sm:grid-cols-2 print:hidden">
-                        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                        <Card>
+                            <CardContent className="p-4">
                             <p className="text-xs font-medium uppercase text-gray-500">
                                 Total savings accounts
                             </p>
                             <p className="mt-1 text-lg font-semibold">
                                 {summary.accounts_total}
                             </p>
-                        </div>
-                        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
                             <p className="text-xs font-medium uppercase text-gray-500">
                                 Total savings balance
                             </p>
                             <p className="mt-1 text-lg font-semibold font-mono">
                                 {money(summary.principal_total_cents)}
                             </p>
-                        </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
                     <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -82,6 +88,9 @@ export default function SavingsAccounts({
                                 <tr>
                                     <th className="px-3 py-2 text-left">Account #</th>
                                     <th className="px-3 py-2 text-left">Member</th>
+                                    <th className="px-3 py-2 text-left">Ref / CID</th>
+                                    <th className="px-3 py-2 text-left">Email</th>
+                                    <th className="px-3 py-2 text-left">Phone</th>
                                     <th className="px-3 py-2 text-left">Product</th>
                                     <th className="px-3 py-2 text-left">Status</th>
                                     <th className="px-3 py-2 text-right">Balance</th>
@@ -91,7 +100,7 @@ export default function SavingsAccounts({
                                 {rows.length === 0 ? (
                                     <tr>
                                         <td
-                                            colSpan={5}
+                                            colSpan={8}
                                             className="px-3 py-8 text-center text-gray-500"
                                         >
                                             No savings accounts found.
@@ -107,6 +116,15 @@ export default function SavingsAccounts({
                                                 {r.member_number != null
                                                     ? `#${r.member_number} ${r.member_name || ''}`
                                                     : (r.member_name || '—')}
+                                            </td>
+                                            <td className="px-3 py-2 text-xs">
+                                                {r.member_reference_code || '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-xs break-all">
+                                                {r.member_email || '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-xs">
+                                                {r.member_phone || '—'}
                                             </td>
                                             <td className="px-3 py-2">
                                                 <span className="font-mono text-xs">

@@ -1,4 +1,5 @@
 import CompanyPicker from '@/Components/CompanyPicker';
+import InputError from '@/Components/InputError';
 import PrintLetterhead from '@/Components/PrintLetterhead';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -22,12 +23,38 @@ export default function Index({
     currentCompanyId,
     letterhead,
 }) {
-    const user = usePage().props.auth.user ?? {};
+    const { auth, errors } = usePage().props;
+    const user = auth.user ?? {};
 
     const companyQuery =
         user.role === 'admin' && currentCompanyId
             ? { company_id: currentCompanyId }
             : {};
+    const canApprove = user.role === 'company' && user.can_approve_journals;
+
+    const approveJournal = (journalId) => {
+        const data =
+            user.role === 'admin' && currentCompanyId
+                ? { company_id: currentCompanyId }
+                : {};
+        router.post(route('journals.approve', { journal: journalId }), data, {
+            preserveScroll: true,
+        });
+    };
+
+    const rejectJournal = (journalId) => {
+        const reason = window.prompt('Reject reason (required):') ?? '';
+        if (!reason.trim()) {
+            return;
+        }
+        const data =
+            user.role === 'admin' && currentCompanyId
+                ? { reject_reason: reason, company_id: currentCompanyId }
+                : { reject_reason: reason };
+        router.post(route('journals.reject', { journal: journalId }), data, {
+            preserveScroll: true,
+        });
+    };
 
     return (
         <AuthenticatedLayout
@@ -80,6 +107,10 @@ export default function Index({
 
             <div className="py-8">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                    <InputError message={errors.approve} className="mb-2" />
+                    <InputError message={errors.reject} className="mb-2" />
+                    <InputError message={errors.reject_reason} className="mb-2" />
+                    <InputError message={errors.status} className="mb-2" />
                     <PrintLetterhead letterhead={letterhead} />
                     <p className="mb-4 text-sm text-gray-600 print:hidden">
                         Staff draft entries and submit them for approval. Company
@@ -87,7 +118,7 @@ export default function Index({
                         reports.
                     </p>
 
-                    <div className="overflow-hidden bg-white shadow sm:rounded-lg">
+                    <div className="overflow-x-auto bg-white shadow sm:rounded-lg">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
@@ -166,6 +197,40 @@ export default function Index({
                                                 {row.creator_name || '—'}
                                             </td>
                                             <td className="whitespace-nowrap px-4 py-3 text-right text-sm">
+                                                {row.status === 'pending' &&
+                                                canApprove ? (
+                                                    <select
+                                                        defaultValue=""
+                                                        className="mr-3 rounded-md border-gray-300 py-1 text-xs"
+                                                        onChange={(e) => {
+                                                            const v =
+                                                                e.target.value;
+                                                            if (
+                                                                v === 'approve'
+                                                            ) {
+                                                                approveJournal(
+                                                                    row.id,
+                                                                );
+                                                            }
+                                                            if (v === 'reject') {
+                                                                rejectJournal(
+                                                                    row.id,
+                                                                );
+                                                            }
+                                                            e.target.value = '';
+                                                        }}
+                                                    >
+                                                        <option value="">
+                                                            Approval action...
+                                                        </option>
+                                                        <option value="approve">
+                                                            Approve
+                                                        </option>
+                                                        <option value="reject">
+                                                            Reject
+                                                        </option>
+                                                    </select>
+                                                ) : null}
                                                 <Link
                                                     href={route(
                                                         'journals.show',

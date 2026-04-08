@@ -14,6 +14,24 @@ function buildNavSections(
     companyFeatures,
     currentCompanyId,
 ) {
+    const cbsRank = (href = '') => {
+        if (href.includes('/members')) return 10;
+        if (href.includes('/member-groups')) return 20;
+        if (href.includes('/finance/loan-products')) return 30;
+        if (href.includes('/finance/savings-products')) return 40;
+        if (href.includes('/workspace/front-desk')) return 50;
+        if (href.includes('/workspace/back-office')) return 60;
+        if (href.includes('/banking/operations')) return 70;
+        if (href.includes('/finance/account-entry')) return 80;
+        if (href.includes('/finance/loan') && href.includes('workspace=front')) return 90;
+        if (href.includes('/finance/savings') && href.includes('workspace=front')) return 100;
+        if (href.includes('/finance/loan') && href.includes('workspace=back')) return 110;
+        if (href.includes('/finance/savings') && href.includes('workspace=back')) return 120;
+        if (href.includes('/finance/investment')) return 130;
+        if (href.includes('/chart-accounts')) return 140;
+        return 999;
+    };
+
     const cf = companyFeatures ?? {
         plan: 'starter',
         inventory: false,
@@ -23,6 +41,8 @@ function buildNavSections(
     };
 
     const sections = [];
+    const cbsItems = [];
+    const opsItems = [];
 
     const finUrl = (cat, ws) =>
         route('finance.positions.index', { category: cat, workspace: ws });
@@ -75,27 +95,23 @@ function buildNavSections(
     }
 
     if (user.can_edit_accounting && cf.finance) {
-        sections.push({
-            id: 'workspace',
-            title: t('nav.workspace'),
-            items: [
-                {
-                    href: route('workspace.front-desk'),
-                    label: t('nav.frontDesk'),
-                    active: route().current('workspace.front-desk'),
-                },
-                {
-                    href: route('workspace.back-office'),
-                    label: t('nav.backOffice'),
-                    active: route().current('workspace.back-office'),
-                },
-                {
-                    href: route('finance.account-entry'),
-                    label: t('nav.accountNumberEntry'),
-                    active: route().current('finance.account-entry'),
-                },
-            ],
-        });
+        cbsItems.push(
+            {
+                href: route('workspace.front-desk'),
+                label: t('nav.frontDesk'),
+                active: route().current('workspace.front-desk'),
+            },
+            {
+                href: route('workspace.back-office'),
+                label: t('nav.backOffice'),
+                active: route().current('workspace.back-office'),
+            },
+            {
+                href: route('finance.account-entry'),
+                label: t('nav.accountNumberEntry'),
+                active: route().current('finance.account-entry'),
+            },
+        );
     }
 
     if (
@@ -108,16 +124,10 @@ function buildNavSections(
             user.role === 'admin' && currentCompanyId
                 ? { company_id: currentCompanyId }
                 : {};
-        sections.push({
-            id: 'core_banking',
-            title: 'Core banking',
-            items: [
-                {
-                    href: route('banking.operations', bankingQ),
-                    label: 'Operations hub',
-                    active: route().current('banking.operations'),
-                },
-            ],
+        cbsItems.push({
+            href: route('banking.operations', bankingQ),
+            label: 'Operations hub',
+            active: route().current('banking.operations'),
         });
     }
 
@@ -173,31 +183,24 @@ function buildNavSections(
     }
 
     if (user.can_manage_chart_of_accounts) {
-        sections.push({
-            id: 'ledger',
-            title: t('nav.ledger'),
-            items: [
-                {
-                    href: route('chart-accounts.index'),
-                    label: t('nav.chartOfAccounts'),
-                    active: route().current('chart-accounts.*'),
-                },
-            ],
+        cbsItems.push({
+            href: route('chart-accounts.index'),
+            label: t('nav.chartOfAccounts'),
+            active: route().current('chart-accounts.*'),
         });
     }
 
     if (user.can_edit_accounting) {
-        const ledger = sections.find((s) => s.id === 'ledger');
         const items = [];
         if (cf.inventory) {
-            items.push({
+            opsItems.push({
                 href: route('inventory.index'),
                 label: t('nav.inventory'),
                 active: route().current('inventory.*'),
             });
         }
         if (cf.debtors_creditors) {
-            items.push(
+            opsItems.push(
                 {
                     href: route('debtors.index'),
                     label: t('nav.debtors'),
@@ -280,11 +283,26 @@ function buildNavSections(
                 },
             );
         }
-        if (ledger) {
-            ledger.items.push(...items);
-        } else {
-            sections.push({ id: 'ledger', title: t('nav.ledger'), items });
-        }
+        cbsItems.push(...items);
+    }
+
+    if (cbsItems.length > 0) {
+        const rankedCbsItems = [...cbsItems].sort(
+            (a, b) => cbsRank(a.href) - cbsRank(b.href),
+        );
+        sections.push({
+            id: 'cbs',
+            title: 'CBS',
+            items: rankedCbsItems,
+        });
+    }
+
+    if (opsItems.length > 0) {
+        sections.push({
+            id: 'operations',
+            title: 'Inventory & Parties',
+            items: opsItems,
+        });
     }
 
     if (user.can_edit_accounting && cf.crm) {
@@ -422,6 +440,28 @@ export default function AuthenticatedLayout({ header, children }) {
 
     const companyFeatures = page.props.company_features;
     const currentCompanyId = page.props.current_company_id;
+    const approvalNotifications = page.props.approval_notifications ?? {
+        total: 0,
+        pending_members: 0,
+        pending_savings_approvals: 0,
+    };
+    const approvalTotal = Number(approvalNotifications.total || 0);
+    const pendingMembers = Number(approvalNotifications.pending_members || 0);
+    const pendingSavings = Number(
+        approvalNotifications.pending_savings_approvals || 0,
+    );
+    const approvalQuery =
+        user.role === 'admin' && currentCompanyId
+            ? { company_id: currentCompanyId }
+            : {};
+    const verifyHref =
+        pendingMembers > 0
+            ? route('members.index', approvalQuery)
+            : route('finance.positions.index', {
+                  ...approvalQuery,
+                  category: 'savings',
+                  workspace: 'back',
+              });
 
     const sections = useMemo(
         () =>
@@ -560,6 +600,51 @@ export default function AuthenticatedLayout({ header, children }) {
                         <ThemeLanguageControls className="shrink-0 print:hidden" />
 
                         <div className="hidden h-8 w-px bg-gray-200 sm:block dark:bg-border" />
+
+                        {approvalTotal > 0 && user?.can_edit_accounting ? (
+                            <div className="hidden sm:flex sm:items-center sm:gap-2">
+                                <Link
+                                    href={verifyHref}
+                                    className="inline-flex items-center rounded-full bg-red-600 px-2.5 py-1 text-xs font-semibold text-white"
+                                >
+                                    Verify {approvalTotal}
+                                </Link>
+                                <div className="text-right text-xs text-gray-600 dark:text-muted-foreground">
+                                    {pendingMembers > 0 ? (
+                                        <div>
+                                            <Link
+                                                href={route(
+                                                    'members.index',
+                                                    approvalQuery,
+                                                )}
+                                                className="underline"
+                                            >
+                                                Members pending:{' '}
+                                                {pendingMembers}
+                                            </Link>
+                                        </div>
+                                    ) : null}
+                                    {pendingSavings > 0 ? (
+                                        <div>
+                                            <Link
+                                                href={route(
+                                                    'finance.positions.index',
+                                                    {
+                                                        ...approvalQuery,
+                                                        category: 'savings',
+                                                        workspace: 'back',
+                                                    },
+                                                )}
+                                                className="underline"
+                                            >
+                                                Savings approvals:{' '}
+                                                {pendingSavings}
+                                            </Link>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </div>
+                        ) : null}
 
                         <div className="hidden min-w-0 max-w-[12rem] text-right sm:block">
                             <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-muted-foreground">

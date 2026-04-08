@@ -94,10 +94,6 @@ class MemberPolicy
             return true;
         }
 
-        if ($user->isAdmin()) {
-            return true;
-        }
-
         if (! $user->isCompany()) {
             return false;
         }

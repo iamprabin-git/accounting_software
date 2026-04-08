@@ -1,5 +1,7 @@
 import LoanSavingsProductModal from '@/Components/LoanSavingsProductModal';
 import CompanyPicker from '@/Components/CompanyPicker';
+import InputError from '@/Components/InputError';
+import { Button } from '@/Components/ui/button';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { moneyFromCents } from '@/utils/money';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -43,6 +45,7 @@ export default function Index({
     const showSchedule = workspace !== 'front';
     const showProductColumn =
         category === 'loan' || category === 'savings';
+    const canCompanyApprove = user.role === 'company';
 
     const [modalRow, setModalRow] = useState(null);
 
@@ -64,6 +67,44 @@ export default function Index({
                 position: id,
             }),
             opts,
+        );
+    };
+
+    const runApprovalAction = (row, action) => {
+        const isLoanPending =
+            category === 'loan' &&
+            row.uses_structured_loan &&
+            row.loan_workflow_status === 'pending_approval';
+        const isSavingsPending =
+            category === 'savings' &&
+            row.uses_structured_savings &&
+            row.savings_workflow_status === 'pending_approval';
+
+        if (!isLoanPending && !isSavingsPending) {
+            return;
+        }
+
+        let routeName = '';
+        if (isLoanPending) {
+            routeName =
+                action === 'approve'
+                    ? 'finance.positions.loan.approve'
+                    : 'finance.positions.loan.reject';
+        } else {
+            routeName =
+                action === 'approve'
+                    ? 'finance.positions.savings.approve'
+                    : 'finance.positions.savings.reject';
+        }
+
+        if (!routeName) return;
+
+        const payload =
+            isAdmin && currentCompanyId ? { company_id: currentCompanyId } : {};
+        router.post(
+            route(routeName, { category, position: row.id }),
+            payload,
+            { preserveScroll: true },
         );
     };
 
@@ -102,9 +143,8 @@ export default function Index({
                                     category,
                                     ...listQuery,
                                 })}
-                                className="inline-flex items-center rounded-md border border-transparent bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-gray-700"
                             >
-                                Add record
+                                <Button size="sm">Add record</Button>
                             </Link>
                         )}
                     </div>
@@ -131,6 +171,11 @@ export default function Index({
                             member approvals.
                         </p>
                     )}
+                    <InputError message={page.props.errors?.approve} className="mb-2" />
+                    <InputError message={page.props.errors?.reject} className="mb-2" />
+                    <InputError message={page.props.errors?.workflow} className="mb-2" />
+                    <InputError message={page.props.errors?.status} className="mb-2" />
+                    <InputError message={page.props.errors?.delete} className="mb-2" />
 
                     <nav className="mb-6 flex flex-wrap gap-2 print:hidden">
                         {TABS.map((t) => (
@@ -186,7 +231,7 @@ export default function Index({
                         </div>
                     </div>
 
-                    <div className="overflow-hidden bg-white shadow sm:rounded-lg">
+                    <div className="overflow-x-auto rounded-lg bg-white shadow">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
@@ -348,9 +393,48 @@ export default function Index({
                                                         !row.loan_operational) ||
                                                     (row.uses_structured_savings &&
                                                         !row.savings_operational) ? (
-                                                        <span className="text-xs text-amber-800">
-                                                            Awaiting approval
-                                                        </span>
+                                                        canCompanyApprove &&
+                                                        ((category === 'loan' &&
+                                                            row.loan_workflow_status ===
+                                                                'pending_approval') ||
+                                                            (category ===
+                                                                'savings' &&
+                                                                row.savings_workflow_status ===
+                                                                    'pending_approval')) ? (
+                                                            <select
+                                                                defaultValue=""
+                                                                className="rounded-md border-gray-300 py-1 text-xs"
+                                                                onChange={(
+                                                                    e,
+                                                                ) => {
+                                                                    const v =
+                                                                        e.target
+                                                                            .value;
+                                                                    if (!v)
+                                                                        return;
+                                                                    runApprovalAction(
+                                                                        row,
+                                                                        v,
+                                                                    );
+                                                                    e.target.value =
+                                                                        '';
+                                                                }}
+                                                            >
+                                                                <option value="">
+                                                                    Approval action...
+                                                                </option>
+                                                                <option value="approve">
+                                                                    Approve
+                                                                </option>
+                                                                <option value="reject">
+                                                                    Reject
+                                                                </option>
+                                                            </select>
+                                                        ) : (
+                                                            <span className="text-xs text-amber-800">
+                                                                Awaiting approval
+                                                            </span>
+                                                        )
                                                     ) : (
                                                         <button
                                                             type="button"
@@ -413,10 +497,24 @@ export default function Index({
                                                         </Link>
                                                         <button
                                                             type="button"
-                                                            onClick={() =>
-                                                                destroy(row.id)
+                                                            onClick={() => {
+                                                                if (!row.can_delete)
+                                                                    return;
+                                                                destroy(row.id);
+                                                            }}
+                                                            disabled={
+                                                                !row.can_delete
                                                             }
-                                                            className="ms-4 text-red-600 hover:text-red-800"
+                                                            title={
+                                                                row.can_delete
+                                                                    ? 'Delete record'
+                                                                    : 'Cannot delete: record has transactions'
+                                                            }
+                                                            className={`ms-4 ${
+                                                                row.can_delete
+                                                                    ? 'text-red-600 hover:text-red-800'
+                                                                    : 'cursor-not-allowed text-gray-400'
+                                                            }`}
                                                         >
                                                             Delete
                                                         </button>

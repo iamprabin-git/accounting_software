@@ -281,7 +281,10 @@ class AccountingReportController extends Controller
         $rows = FinancialPosition::query()
             ->where('company_id', $company->id)
             ->where('category', FinancialPosition::CATEGORY_LOAN)
-            ->with(['member:id,member_number,name', 'loanProduct:id,product_code,name'])
+            ->with([
+                'member:id,member_number,name,reference_code,email,phone',
+                'loanProduct:id,product_code,name',
+            ])
             ->orderBy('account_number')
             ->orderBy('id')
             ->get()
@@ -291,6 +294,9 @@ class AccountingReportController extends Controller
                 'title' => $p->title,
                 'member_number' => $p->member?->member_number,
                 'member_name' => $p->member?->name,
+                'member_reference_code' => $p->member?->reference_code,
+                'member_email' => $p->member?->email,
+                'member_phone' => $p->member?->phone,
                 'product_code' => $p->loanProduct?->product_code,
                 'product_name' => $p->loanProduct?->name,
                 'workflow_status' => $p->loan_workflow_status,
@@ -324,7 +330,10 @@ class AccountingReportController extends Controller
         $rows = FinancialPosition::query()
             ->where('company_id', $company->id)
             ->where('category', FinancialPosition::CATEGORY_SAVINGS)
-            ->with(['member:id,member_number,name', 'savingsProduct:id,product_code,name'])
+            ->with([
+                'member:id,member_number,name,reference_code,email,phone',
+                'savingsProduct:id,product_code,name',
+            ])
             ->orderBy('account_number')
             ->orderBy('id')
             ->get()
@@ -334,6 +343,9 @@ class AccountingReportController extends Controller
                 'title' => $p->title,
                 'member_number' => $p->member?->member_number,
                 'member_name' => $p->member?->name,
+                'member_reference_code' => $p->member?->reference_code,
+                'member_email' => $p->member?->email,
+                'member_phone' => $p->member?->phone,
                 'product_code' => $p->savingsProduct?->product_code,
                 'product_name' => $p->savingsProduct?->name,
                 'workflow_status' => $p->savings_workflow_status,

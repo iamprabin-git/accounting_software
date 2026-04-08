@@ -1,5 +1,7 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import PrintLetterhead from '@/Components/PrintLetterhead';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { usePrintWhenReady } from '@/hooks/usePrintWhenReady';
 import { moneyFromCents } from '@/utils/money';
@@ -19,7 +21,11 @@ function Section({ title, rows }) {
                     rows.map((r) => (
                         <li
                             key={r.code}
-                            className="flex justify-between py-2"
+                            className={`flex justify-between py-2 ${
+                                r.finance_rollup
+                                    ? 'bg-slate-50 text-slate-800'
+                                    : ''
+                            }`}
                         >
                             <span>
                                 {r.code} {r.name}
@@ -71,6 +77,8 @@ export default function BalanceSheet({
         company_id: isAdmin ? currentCompanyId : undefined,
     });
 
+    const reportQuery = isAdmin ? { company_id: currentCompanyId } : {};
+
     return (
         <AuthenticatedLayout
             header={
@@ -84,13 +92,15 @@ export default function BalanceSheet({
                             currentCompanyId={currentCompanyId}
                             routeName="reports.balance-sheet"
                             routeParams={{}}
-                            query={{ as_of: asOf, show_zero: showZero ? 1 : 0 }}
+                            query={{
+                                as_of: asOf,
+                                show_zero: showZero ? 1 : 0,
+                            }}
                         />
-                        <Link
-                            href={printHref}
-                            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-50"
-                        >
+                        <Link href={printHref}>
+                            <Button variant="outline" size="sm">
                             Print
+                            </Button>
                         </Link>
                     </div>
                 </div>
@@ -125,12 +135,9 @@ export default function BalanceSheet({
                             />
                             Show zero balances
                         </label>
-                        <button
-                            type="submit"
-                            className="rounded-md bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"
-                        >
+                        <Button type="submit" size="sm">
                             Apply
-                        </button>
+                        </Button>
                     </form>
 
                     <div className="mb-4 hidden print:block">
@@ -138,7 +145,8 @@ export default function BalanceSheet({
                         <p className="text-sm text-gray-700">As of {as_of}</p>
                     </div>
 
-                    <div className="rounded bg-white p-6 shadow print:shadow-none">
+                    <Card className="print:shadow-none">
+                        <CardContent className="p-6">
                         <Section title="Assets" rows={report.assets} />
                         <Section
                             title="Liabilities"
@@ -169,7 +177,32 @@ export default function BalanceSheet({
                                 )}
                             </span>
                         </div>
-                    </div>
+                        <p className="mt-4 text-xs text-gray-600">
+                            Shaded Σ lines are rolled-up member loan receivables
+                            (assets) and savings deposits (liabilities). See{' '}
+                            <Link
+                                href={route(
+                                    'reports.loan-accounts',
+                                    reportQuery,
+                                )}
+                                className="text-indigo-600 hover:text-indigo-800"
+                            >
+                                Statement of loans
+                            </Link>{' '}
+                            and{' '}
+                            <Link
+                                href={route(
+                                    'reports.savings-accounts',
+                                    reportQuery,
+                                )}
+                                className="text-indigo-600 hover:text-indigo-800"
+                            >
+                                Statement of savings
+                            </Link>{' '}
+                            for per-account member detail.
+                        </p>
+                        </CardContent>
+                    </Card>
 
                     <p className="mt-4 text-sm print:hidden">
                         <Link

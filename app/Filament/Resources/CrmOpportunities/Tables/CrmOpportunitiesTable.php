@@ -26,7 +26,7 @@ class CrmOpportunitiesTable
                     ->formatStateUsing(fn (string $state): string => CrmOpportunity::stageLabels()[$state] ?? $state),
                 TextColumn::make('amount_cents')
                     ->label('Amount')
-                    ->money('USD', divideBy: 100)
+                    ->money('NPR', divideBy: 100)
                     ->placeholder('—'),
                 TextColumn::make('account.name')
                     ->label('Account')

@@ -44,4 +44,18 @@ class FinancialPositionPolicy
     {
         return $this->view($user, $financialPosition);
     }
+
+    public function approve(User|Admin $user, FinancialPosition $financialPosition): bool
+    {
+        if ($user instanceof Admin) {
+            return true;
+        }
+
+        return $user->isCompany() && $user->company_id === $financialPosition->company_id;
+    }
+
+    public function reject(User|Admin $user, FinancialPosition $financialPosition): bool
+    {
+        return $this->approve($user, $financialPosition);
+    }
 }

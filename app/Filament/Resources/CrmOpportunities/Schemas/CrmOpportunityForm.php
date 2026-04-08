@@ -34,7 +34,7 @@ class CrmOpportunityForm
                     ->default(CrmOpportunity::STAGE_LEAD)
                     ->required(),
                 TextInput::make('amount')
-                    ->label('Amount (dollars)')
+                    ->label('Amount (NPR)')
                     ->numeric()
                     ->default(0),
                 TextInput::make('probability')

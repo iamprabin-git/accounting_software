@@ -1,7 +1,7 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
+import { Button } from '@/Components/ui/button';
 import TextInput from '@/Components/TextInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { moneyFromCents } from '@/utils/money';
@@ -611,13 +611,13 @@ export default function Show({
                                         }
                                     />
                                 </div>
-                                <PrimaryButton
+                                <Button
                                     disabled={
                                         syncForm.processing || !memberFinanceOk
                                     }
                                 >
                                     Sync year
-                                </PrimaryButton>
+                                </Button>
                                 <InputError
                                     message={errors.sync ?? errors.member}
                                     className="w-full"
@@ -703,13 +703,13 @@ export default function Show({
                                         }
                                     />
                                 </div>
-                                <PrimaryButton
+                                <Button
                                     disabled={
                                         manualForm.processing || !memberFinanceOk
                                     }
                                 >
                                     Save accrual
-                                </PrimaryButton>
+                                </Button>
                                 <InputError
                                     message={
                                         errors.manual ?? errors.amount
@@ -886,12 +886,12 @@ function QuarterPostForm({
                         setData={form.setData}
                         errors={errors}
                     />
-                    <PrimaryButton
+                    <Button
                         disabled={form.processing || !memberFinanceOk}
                         type="submit"
                     >
                         Post quarter to ledger
-                    </PrimaryButton>
+                    </Button>
                     <InputError message={errors.quarter} />
                     <InputError message={errors.amount} />
                     <InputError message={errors.ledger} />
@@ -1006,13 +1006,13 @@ function AccrualTableRow({
                             setData={form.setData}
                             errors={errors}
                         />
-                        <PrimaryButton
+                        <Button
                             type="submit"
                             disabled={form.processing}
                             className="text-xs"
                         >
                             Post this month
-                        </PrimaryButton>
+                        </Button>
                         <InputError message={errors.posted} />
                         <InputError message={errors.kind} />
                         <InputError message={errors.amount} />

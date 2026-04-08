@@ -41,7 +41,7 @@ class InventoryItemForm
                     ->visibleOn('create')
                     ->helperText('Opening quantity; further stock uses Purchases in the customer app.'),
                 TextInput::make('unit_cost')
-                    ->label('Unit cost (dollars)')
+                    ->label('Unit cost (NPR)')
                     ->numeric()
                     ->default(0)
                     ->required()

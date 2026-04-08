@@ -1,4 +1,6 @@
 import CompanyPicker from '@/Components/CompanyPicker';
+import InputError from '@/Components/InputError';
+import { Button } from '@/Components/ui/button';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 
@@ -21,6 +23,7 @@ export default function Index({
     can_approve,
 }) {
     const user = usePage().props.auth.user ?? {};
+    const { errors } = usePage().props;
     const isAdmin = user.role === 'admin';
     const companyQuery =
         isAdmin && currentCompanyId
@@ -44,6 +47,16 @@ export default function Index({
         router.post(route('members.reject', { member: id }), data, {
             preserveScroll: true,
         });
+    };
+
+    const handleApprovalAction = (id, action) => {
+        if (action === 'approve') {
+            approve(id);
+            return;
+        }
+        if (action === 'reject') {
+            reject(id);
+        }
     };
 
     const destroy = (id) => {
@@ -89,18 +102,14 @@ export default function Index({
                             query={{}}
                         />
                         {can_create && (
-                            <Link
-                                href={route('members.create', companyQuery)}
-                                className="inline-flex items-center rounded-md border border-transparent bg-gray-800 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-white transition hover:bg-gray-700"
-                            >
-                                Register member
+                            <Link href={route('members.create', companyQuery)}>
+                                <Button size="sm">Register member</Button>
                             </Link>
                         )}
-                        <Link
-                            href={route('member-groups.index', companyQuery)}
-                            className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 transition hover:bg-gray-50"
-                        >
-                            Member groups
+                        <Link href={route('member-groups.index', companyQuery)}>
+                            <Button variant="outline" size="sm">
+                                Member groups
+                            </Button>
                         </Link>
                     </div>
                 </div>
@@ -110,6 +119,9 @@ export default function Index({
 
             <div className="py-8">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                    <InputError message={errors.approve} className="mb-2" />
+                    <InputError message={errors.reject} className="mb-2" />
+                    <InputError message={errors.status} className="mb-2" />
                     <p className="mb-4 text-sm text-gray-600">
                         Staff register members; the company account approves them.
                         Each member gets a permanent <strong>member number</strong>.
@@ -117,7 +129,7 @@ export default function Index({
                         journals appear on the member&apos;s individual ledger by type.
                     </p>
 
-                    <div className="overflow-hidden bg-white shadow sm:rounded-lg">
+                    <div className="overflow-x-auto rounded-lg bg-white shadow">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
@@ -193,33 +205,52 @@ export default function Index({
                                                             Ledger
                                                         </Link>
                                                     )}
+                                                    {m.status === 'approved' && (
+                                                        <Link
+                                                            href={route(
+                                                                'members.products',
+                                                                {
+                                                                    member: m.id,
+                                                                    ...companyQuery,
+                                                                },
+                                                            )}
+                                                            className="text-sky-700 hover:text-sky-900"
+                                                        >
+                                                            Products
+                                                        </Link>
+                                                    )}
                                                     {can_approve &&
                                                         m.status ===
                                                             'pending' && (
-                                                            <>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        approve(
-                                                                            m.id,
-                                                                        )
-                                                                    }
-                                                                    className="text-green-700 hover:text-green-900"
-                                                                >
+                                                            <select
+                                                                defaultValue=""
+                                                                className="rounded-md border-gray-300 py-1 text-xs"
+                                                                onChange={(
+                                                                    e,
+                                                                ) => {
+                                                                    const v =
+                                                                        e.target
+                                                                            .value;
+                                                                    if (!v)
+                                                                        return;
+                                                                    handleApprovalAction(
+                                                                        m.id,
+                                                                        v,
+                                                                    );
+                                                                    e.target.value =
+                                                                        '';
+                                                                }}
+                                                            >
+                                                                <option value="">
+                                                                    Approval action...
+                                                                </option>
+                                                                <option value="approve">
                                                                     Approve
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() =>
-                                                                        reject(
-                                                                            m.id,
-                                                                        )
-                                                                    }
-                                                                    className="text-red-600 hover:text-red-800"
-                                                                >
+                                                                </option>
+                                                                <option value="reject">
                                                                     Reject
-                                                                </button>
-                                                            </>
+                                                                </option>
+                                                            </select>
                                                         )}
                                                     {canEditRow(m) && (
                                                         <Link

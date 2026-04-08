@@ -91,7 +91,7 @@ class Member extends Model
         return $this->hasMany(JournalEntry::class, 'member_id');
     }
 
-    public function groupMemberships(): HasMany
+    public function groups(): HasMany
     {
         return $this->hasMany(MemberGroupMember::class);
     }

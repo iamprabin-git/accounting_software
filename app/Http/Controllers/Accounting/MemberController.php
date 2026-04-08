@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesAccountingCompany;
+use App\Models\ChartAccount;
+use App\Models\LoanProduct;
 use App\Models\Member;
+use App\Models\SavingsProduct;
 use App\Support\EmailAddress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,7 +51,7 @@ class MemberController extends Controller
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
             'can_create' => $request->user()->can('create', Member::class),
-            'can_approve' => $request->user()->isCompany() || $request->user()->isAdmin(),
+            'can_approve' => $request->user()->isCompany(),
         ]);
     }
 
@@ -203,7 +206,10 @@ class MemberController extends Controller
             'rejection_reason' => null,
         ]);
 
-        return back()->with('status', __('Member approved. Loan and savings can be linked to this member.'));
+        return redirect()->route('members.products', array_merge(
+            ['member' => $record->id],
+            $this->companyQuery($request),
+        ))->with('status', __('Member approved. Continue with loan, savings, and equity share account setup.'));
     }
 
     public function reject(Request $request, int $member): RedirectResponse
@@ -258,6 +264,75 @@ class MemberController extends Controller
 
         return redirect()->route('members.index', $this->companyQuery($request))
             ->with('status', __('Member removed.'));
+    }
+
+    public function products(Request $request, int $member): Response
+    {
+        $this->authorize('viewAny', Member::class);
+
+        $company = $this->accountingCompany($request);
+        $record = Member::query()
+            ->where('company_id', $company->id)
+            ->findOrFail($member);
+
+        abort_unless($record->isApproved(), 403, 'Member must be approved before creating finance products.');
+
+        $loanProducts = LoanProduct::query()
+            ->where('company_id', $company->id)
+            ->where('is_active', true)
+            ->orderBy('product_code')
+            ->get(['id', 'product_code', 'name', 'default_annual_interest_rate_percent'])
+            ->map(fn (LoanProduct $p) => [
+                'id' => $p->id,
+                'product_code' => $p->product_code,
+                'name' => $p->name,
+                'default_annual_interest_rate_percent' => (string) $p->default_annual_interest_rate_percent,
+            ])
+            ->values()
+            ->all();
+
+        $savingsProducts = SavingsProduct::query()
+            ->where('company_id', $company->id)
+            ->where('is_active', true)
+            ->orderBy('product_code')
+            ->get(['id', 'product_code', 'name', 'default_annual_interest_rate_percent'])
+            ->map(fn (SavingsProduct $p) => [
+                'id' => $p->id,
+                'product_code' => $p->product_code,
+                'name' => $p->name,
+                'default_annual_interest_rate_percent' => (string) $p->default_annual_interest_rate_percent,
+            ])
+            ->values()
+            ->all();
+
+        $chartHints = ChartAccount::query()
+            ->where('company_id', $company->id)
+            ->approvedForJournals()
+            ->orderBy('code')
+            ->get(['id', 'code', 'name', 'type'])
+            ->map(fn (ChartAccount $a) => [
+                'id' => $a->id,
+                'code' => $a->code,
+                'name' => $a->name,
+                'type' => $a->type,
+            ])
+            ->values()
+            ->all();
+
+        return Inertia::render('Accounting/Members/ProductSetup', [
+            'member' => [
+                'id' => $record->id,
+                'cid' => $record->member_number,
+                'name' => $record->name,
+                'email' => $record->email,
+                'reference_code' => $record->reference_code,
+            ],
+            'loan_products' => $loanProducts,
+            'savings_products' => $savingsProducts,
+            'chart_hints' => $chartHints,
+            'companies' => $this->accountingCompanyOptionsForAdmin($request),
+            'currentCompanyId' => $company->id,
+        ]);
     }
 
     private function validateAdminCompanySelection(Request $request): void

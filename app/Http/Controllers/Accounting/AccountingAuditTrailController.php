@@ -46,9 +46,31 @@ class AccountingAuditTrailController extends Controller
                 'previous_event_hash' => $log->previous_event_hash,
             ]);
 
+        $summaryBase = AccountingAuditLog::query()
+            ->where('company_id', $company->id);
+        $failedIntegrityCount = (clone $summaryBase)
+            ->whereIn('action', ['audit.integrity_failed', 'audit.integrity_nightly_failed'])
+            ->count();
+        $todayEvents = (clone $summaryBase)
+            ->whereDate('created_at', now()->toDateString())
+            ->count();
+        $uniqueActors7d = (clone $summaryBase)
+            ->whereDate('created_at', '>=', now()->subDays(7)->toDateString())
+            ->whereNotNull('user_id')
+            ->distinct('user_id')
+            ->count('user_id');
+
         return Inertia::render('Accounting/AuditTrail/Index', [
             'logs' => $logs,
             'filters' => $filters,
+            'action_options' => AccountingAuditLog::query()
+                ->where('company_id', $company->id)
+                ->select('action')
+                ->distinct()
+                ->orderBy('action')
+                ->pluck('action')
+                ->values()
+                ->all(),
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
             'integrity' => app(AuditIntegrityService::class)->verifyCompany($company->id),
@@ -58,6 +80,11 @@ class AccountingAuditTrailController extends Controller
                 ->latest('id')
                 ->first(['id', 'action', 'metadata', 'created_at'])
                 ?->only(['id', 'action', 'metadata', 'created_at']),
+            'summary' => [
+                'today_events' => $todayEvents,
+                'failed_integrity_events' => $failedIntegrityCount,
+                'unique_actors_7d' => $uniqueActors7d,
+            ],
         ]);
     }
 
@@ -176,32 +203,41 @@ class AccountingAuditTrailController extends Controller
     }
 
     /**
-     * @return array{action: ?string, from_date: ?string, to_date: ?string, journal_entry_id: ?int}
+     * @return array{action: ?string, action_like: ?string, from_date: ?string, to_date: ?string, journal_entry_id: ?int, actor_name: ?string, hash: ?string}
      */
     private function validatedFilters(Request $request): array
     {
         $v = $request->validate([
             'action' => ['nullable', 'string', 'max:64'],
+            'action_like' => ['nullable', 'string', 'max:64'],
             'from_date' => ['nullable', 'date'],
             'to_date' => ['nullable', 'date'],
             'journal_entry_id' => ['nullable', 'integer'],
+            'actor_name' => ['nullable', 'string', 'max:100'],
+            'hash' => ['nullable', 'string', 'max:128'],
         ]);
 
         return [
             'action' => $v['action'] ?? null,
+            'action_like' => $v['action_like'] ?? null,
             'from_date' => $v['from_date'] ?? null,
             'to_date' => $v['to_date'] ?? null,
             'journal_entry_id' => isset($v['journal_entry_id']) ? (int) $v['journal_entry_id'] : null,
+            'actor_name' => $v['actor_name'] ?? null,
+            'hash' => $v['hash'] ?? null,
         ];
     }
 
     /**
-     * @param  array{action: ?string, from_date: ?string, to_date: ?string, journal_entry_id: ?int}  $filters
+     * @param  array{action: ?string, action_like: ?string, from_date: ?string, to_date: ?string, journal_entry_id: ?int, actor_name: ?string, hash: ?string}  $filters
      */
     private function applyFilters($query, array $filters)
     {
         if ($filters['action']) {
             $query->where('action', $filters['action']);
+        }
+        if ($filters['action_like']) {
+            $query->where('action', 'like', '%'.$filters['action_like'].'%');
         }
         if ($filters['from_date']) {
             $query->whereDate('created_at', '>=', $filters['from_date']);
@@ -211,6 +247,16 @@ class AccountingAuditTrailController extends Controller
         }
         if ($filters['journal_entry_id']) {
             $query->where('journal_entry_id', $filters['journal_entry_id']);
+        }
+        if ($filters['actor_name']) {
+            $needle = $filters['actor_name'];
+            $query->whereHas('user', fn ($q) => $q->where('name', 'like', '%'.$needle.'%'));
+        }
+        if ($filters['hash']) {
+            $query->where(function ($q) use ($filters) {
+                $q->where('event_hash', 'like', '%'.$filters['hash'].'%')
+                    ->orWhere('previous_event_hash', 'like', '%'.$filters['hash'].'%');
+            });
         }
 
         return $query;

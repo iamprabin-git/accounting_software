@@ -1,8 +1,9 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
@@ -60,7 +61,7 @@ export default function Edit({ member, companies, currentCompanyId }) {
 
             <div className="py-8">
                 <div className="mx-auto max-w-2xl sm:px-6 lg:px-8">
-                    <p className="mb-4 text-sm text-gray-600">
+                    <p className="mb-4 text-sm text-muted-foreground">
                         <span className="font-semibold tabular-nums text-gray-900">
                             Member #{member.member_number}
                         </span>
@@ -74,9 +75,14 @@ export default function Edit({ member, companies, currentCompanyId }) {
                             </>
                         )}
                     </p>
+                    <Card>
+                        <CardHeader className="pb-4">
+                            <CardTitle className="text-base">Member details</CardTitle>
+                        </CardHeader>
+                        <CardContent>
                     <form
                         onSubmit={submit}
-                        className="space-y-6 bg-white p-6 shadow sm:rounded-lg"
+                        className="space-y-6"
                     >
                         {isAdmin && (
                             <input
@@ -171,16 +177,21 @@ export default function Edit({ member, companies, currentCompanyId }) {
                             <InputError message={errors.notes} className="mt-2" />
                         </div>
 
-                        <div className="flex gap-4">
-                            <PrimaryButton disabled={processing}>Save</PrimaryButton>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Button type="submit" disabled={processing}>
+                                Save
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
                             <Link
                                 href={route('members.index', companyQuery)}
-                                className="inline-flex items-center text-sm text-gray-600 underline"
                             >
                                 Back
                             </Link>
+                            </Button>
                         </div>
                     </form>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AuthenticatedLayout>

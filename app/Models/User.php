@@ -206,7 +206,7 @@ class User extends Authenticatable
 
     public function canApproveJournalEntries(): bool
     {
-        return $this->isAdmin() || $this->isCompany();
+        return $this->isCompany();
     }
 
     /**
@@ -214,7 +214,7 @@ class User extends Authenticatable
      */
     public function canApproveChartAccounts(): bool
     {
-        return $this->canApproveJournalEntries();
+        return $this->isCompany();
     }
 
     public function canViewAccountingReports(): bool

@@ -1,5 +1,7 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import PrintLetterhead from '@/Components/PrintLetterhead';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { usePrintWhenReady } from '@/hooks/usePrintWhenReady';
 import { moneyFromCents } from '@/utils/money';
@@ -42,6 +44,8 @@ export default function TrialBalance({
         company_id: isAdmin ? currentCompanyId : undefined,
     });
 
+    const reportQuery = isAdmin ? { company_id: currentCompanyId } : {};
+
     return (
         <AuthenticatedLayout
             header={
@@ -55,13 +59,15 @@ export default function TrialBalance({
                             currentCompanyId={currentCompanyId}
                             routeName="reports.trial-balance"
                             routeParams={{}}
-                            query={{ as_of: asOf, show_zero: showZero ? 1 : 0 }}
+                            query={{
+                                as_of: asOf,
+                                show_zero: showZero ? 1 : 0,
+                            }}
                         />
-                        <Link
-                            href={printHref}
-                            className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm hover:bg-gray-50"
-                        >
+                        <Link href={printHref}>
+                            <Button variant="outline" size="sm">
                             Print
+                            </Button>
                         </Link>
                     </div>
                 </div>
@@ -72,10 +78,7 @@ export default function TrialBalance({
             <div className="py-8 print:py-4">
                 <div className="mx-auto max-w-5xl sm:px-6 lg:px-8">
                     <PrintLetterhead letterhead={letterhead} />
-                    <form
-                        onSubmit={apply}
-                        className="mb-6 flex flex-wrap items-end gap-3 print:hidden"
-                    >
+                    <form onSubmit={apply} className="mb-6 flex flex-wrap items-end gap-3 print:hidden">
                         <div>
                             <label className="block text-xs font-medium text-gray-600">
                                 As of
@@ -96,12 +99,9 @@ export default function TrialBalance({
                             />
                             Show zero balances
                         </label>
-                        <button
-                            type="submit"
-                            className="rounded-md bg-gray-800 px-4 py-2 text-sm text-white hover:bg-gray-700"
-                        >
+                        <Button type="submit" size="sm">
                             Apply
-                        </button>
+                        </Button>
                     </form>
 
                     <div className="mb-4 hidden print:block">
@@ -109,7 +109,9 @@ export default function TrialBalance({
                         <p className="text-sm text-gray-700">As of {as_of}</p>
                     </div>
 
-                    <div className="overflow-hidden rounded bg-white shadow print:shadow-none">
+                    <Card className="overflow-hidden print:shadow-none">
+                        <CardContent className="p-0">
+                    <div className="overflow-x-auto">
                         <table className="min-w-full divide-y text-sm">
                             <thead className="bg-gray-50 print:bg-white">
                                 <tr>
@@ -125,7 +127,8 @@ export default function TrialBalance({
                                     <tr
                                         key={i}
                                         className={
-                                            row.inventory_extension
+                                            row.inventory_extension ||
+                                            row.finance_rollup
                                                 ? 'bg-slate-50 text-slate-800'
                                                 : ''
                                         }
@@ -168,6 +171,8 @@ export default function TrialBalance({
                             </tfoot>
                         </table>
                     </div>
+                        </CardContent>
+                    </Card>
 
                     {report.inventory_at_cost_cents > 0 && (
                         <p className="mt-3 text-sm text-gray-600 print:text-gray-800">
@@ -182,6 +187,32 @@ export default function TrialBalance({
                             real journals when you capitalize inventory.
                         </p>
                     )}
+
+                    <p className="mt-3 text-sm text-gray-600 print:text-gray-800">
+                        Member loan and savings sub-ledgers are rolled into the
+                        shaded summary lines (Σ-LOANS / Σ-SAVINGS). Per-member
+                        balances and personal details are on the{' '}
+                        <Link
+                            href={route(
+                                'reports.loan-accounts',
+                                reportQuery,
+                            )}
+                            className="text-indigo-600 hover:text-indigo-800"
+                        >
+                            Statement of loans
+                        </Link>{' '}
+                        and{' '}
+                        <Link
+                            href={route(
+                                'reports.savings-accounts',
+                                reportQuery,
+                            )}
+                            className="text-indigo-600 hover:text-indigo-800"
+                        >
+                            Statement of savings
+                        </Link>
+                        .
+                    </p>
 
                     <p className="mt-4 text-sm text-gray-500 print:hidden">
                         <Link

@@ -31,7 +31,7 @@ class InventoryItemsTable
                     ->numeric(decimalPlaces: 4),
                 TextColumn::make('unit_cost_cents')
                     ->label('Unit cost')
-                    ->money('USD', divideBy: 100),
+                    ->money('NPR', divideBy: 100),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()

@@ -1,3 +1,4 @@
+import { Button } from '@/Components/ui/button';
 import { formatStatementAtParts } from '@/utils/dateDisplay';
 import { moneyFromCents } from '@/utils/money';
 import { Head } from '@inertiajs/react';
@@ -36,13 +37,9 @@ export default function Statement({
 
             <div className="mx-auto max-w-3xl p-8 print:max-w-none print:p-0">
                 <div className="print:hidden">
-                    <button
-                        type="button"
-                        onClick={printNow}
-                        className="rounded-md bg-gray-800 px-4 py-2 text-sm font-semibold text-white"
-                    >
+                    <Button type="button" size="sm" onClick={printNow}>
                         Print
-                    </button>
+                    </Button>
                 </div>
 
                 <header className="mt-6 border-b border-gray-200 pb-4">
@@ -94,7 +91,8 @@ export default function Statement({
                     </p>
                 </section>
 
-                <table className="mt-8 w-full border-collapse text-sm">
+                <div className="mt-8 overflow-x-auto print:overflow-visible">
+                <table className="w-full min-w-[520px] border-collapse text-sm">
                     <thead>
                         <tr className="border-b border-gray-300 text-left">
                             <th className="py-2 pr-2 align-bottom">
@@ -149,6 +147,7 @@ export default function Statement({
                         )}
                     </tbody>
                 </table>
+                </div>
             </div>
         </div>
     );

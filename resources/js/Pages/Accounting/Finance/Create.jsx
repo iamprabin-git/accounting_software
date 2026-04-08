@@ -1,8 +1,9 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import {
     annualInterestCents,
@@ -21,6 +22,7 @@ export default function Create({
     approved_members = [],
     loan_products = [],
     savings_products = [],
+    initial_form = {},
     companies,
     currentCompanyId,
 }) {
@@ -29,15 +31,16 @@ export default function Create({
     const [sampleDays, setSampleDays] = useState('30');
 
     const { data, setData, post, processing, errors } = useForm({
-        title: '',
+        title: initial_form.title || '',
         principal: '0',
-        annual_interest_rate_percent: '0',
-        start_date: '',
+        annual_interest_rate_percent:
+            initial_form.annual_interest_rate_percent || '0',
+        start_date: initial_form.start_date || '',
         notes: '',
-        member_id: '',
+        member_id: initial_form.member_id || '',
         account_number: '',
-        loan_product_id: '',
-        savings_product_id: '',
+        loan_product_id: initial_form.loan_product_id || '',
+        savings_product_id: initial_form.savings_product_id || '',
         sanctioned_amount: '',
         workspace:
             workspace === 'front' || workspace === 'back' ? workspace : '',
@@ -49,6 +52,22 @@ export default function Create({
             setData('company_id', currentCompanyId);
         }
     }, [currentCompanyId, isAdmin, setData]);
+
+    useEffect(() => {
+        if (initial_form.title) setData('title', initial_form.title);
+        if (initial_form.member_id) setData('member_id', String(initial_form.member_id));
+        if (initial_form.loan_product_id)
+            setData('loan_product_id', String(initial_form.loan_product_id));
+        if (initial_form.savings_product_id)
+            setData('savings_product_id', String(initial_form.savings_product_id));
+        if (initial_form.annual_interest_rate_percent)
+            setData(
+                'annual_interest_rate_percent',
+                String(initial_form.annual_interest_rate_percent),
+            );
+        if (initial_form.start_date) setData('start_date', initial_form.start_date);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once from server prefill
+    }, []);
 
     useEffect(() => {
         if (category !== 'loan' || !data.loan_product_id) {
@@ -137,9 +156,11 @@ export default function Create({
 
             <div className="py-8">
                 <div className="mx-auto max-w-2xl sm:px-6 lg:px-8">
+                    <Card>
+                        <CardContent className="p-6 sm:p-8">
                     <form
                         onSubmit={submit}
-                        className="space-y-6 bg-white p-6 shadow sm:rounded-lg"
+                        className="space-y-6"
                     >
                         {isAdmin && (
                             <input
@@ -367,7 +388,7 @@ export default function Create({
                                     structuredLoanApplication ||
                                     structuredSavingsApplication
                                         ? 'Principal at opening (NPR)'
-                                        : 'Principal / balance (dollars)'
+                                        : 'Principal / balance (NPR)'
                                 }
                             />
                             <TextInput
@@ -518,8 +539,11 @@ export default function Create({
                             </p>
                         )}
 
-                        <div className="flex gap-4">
-                            <PrimaryButton disabled={processing}>Save</PrimaryButton>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Button type="submit" disabled={processing}>
+                                Save
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
                             <Link
                                 href={route('finance.positions.index', {
                                     category,
@@ -528,12 +552,14 @@ export default function Create({
                                         ? currentCompanyId
                                         : undefined,
                                 })}
-                                className="inline-flex items-center text-sm text-gray-600 underline"
                             >
                                 Cancel
                             </Link>
+                            </Button>
                         </div>
                     </form>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AuthenticatedLayout>

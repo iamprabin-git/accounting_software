@@ -25,7 +25,7 @@ class DebtorsTable
                     ->placeholder('—'),
                 TextColumn::make('balance_cents')
                     ->label('Balance')
-                    ->money('USD', divideBy: 100),
+                    ->money('NPR', divideBy: 100),
             ])
             ->filters([
                 SelectFilter::make('company_id')

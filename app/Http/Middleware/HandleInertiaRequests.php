@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use App\Models\FinancialPosition;
+use App\Models\Member;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -38,9 +40,33 @@ class HandleInertiaRequests extends Middleware
 
         $companyFeatures = null;
         $resolvedCompany = null;
+        $approvalNotifications = [
+            'total' => 0,
+            'pending_members' => 0,
+            'pending_savings_approvals' => 0,
+        ];
         if ($user) {
             $resolvedCompany = Company::resolvedForWebRequest($request);
             $companyFeatures = $resolvedCompany?->featureFlagsForFrontend();
+
+            if ($resolvedCompany && $user->canEditAccounting()) {
+                $pendingMembers = Member::query()
+                    ->where('company_id', $resolvedCompany->id)
+                    ->where('status', Member::STATUS_PENDING)
+                    ->count();
+
+                $pendingSavingsApprovals = FinancialPosition::query()
+                    ->where('company_id', $resolvedCompany->id)
+                    ->where('category', FinancialPosition::CATEGORY_SAVINGS)
+                    ->where('savings_workflow_status', FinancialPosition::LOAN_WORKFLOW_PENDING_APPROVAL)
+                    ->count();
+
+                $approvalNotifications = [
+                    'total' => $pendingMembers + $pendingSavingsApprovals,
+                    'pending_members' => $pendingMembers,
+                    'pending_savings_approvals' => $pendingSavingsApprovals,
+                ];
+            }
         }
 
         return [
@@ -53,6 +79,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'company_features' => $companyFeatures,
             'current_company_id' => $resolvedCompany?->id,
+            'approval_notifications' => $approvalNotifications,
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,

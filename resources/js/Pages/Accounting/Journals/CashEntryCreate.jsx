@@ -1,8 +1,9 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo } from 'react';
@@ -127,9 +128,11 @@ export default function CashEntryCreate({
                         )}
                     </div>
 
+                    <Card>
+                        <CardContent className="p-6 sm:p-8">
                     <form
                         onSubmit={submit}
-                        className="space-y-6 bg-white p-6 shadow sm:rounded-lg"
+                        className="space-y-6"
                     >
                         {isAdmin && (
                             <input
@@ -400,32 +403,36 @@ export default function CashEntryCreate({
                             </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-4">
-                            <PrimaryButton disabled={processing}>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <Button type="submit" disabled={processing}>
                                 Save draft
-                            </PrimaryButton>
+                            </Button>
+                            <Button variant="ghost" size="sm" asChild>
                             <Link
                                 href={route('journals.index', {
                                     company_id: isAdmin
                                         ? currentCompanyId
                                         : undefined,
                                 })}
-                                className="inline-flex items-center text-sm text-gray-600 underline"
                             >
                                 Cancel
                             </Link>
+                            </Button>
+                            <Button variant="outline" size="sm" asChild>
                             <Link
                                 href={route('journals.create', {
                                     company_id: isAdmin
                                         ? currentCompanyId
                                         : undefined,
                                 })}
-                                className="inline-flex items-center text-sm text-indigo-600 underline"
                             >
                                 Full journal (manual debits &amp; credits)
                             </Link>
+                            </Button>
                         </div>
                     </form>
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AuthenticatedLayout>

@@ -100,8 +100,9 @@ export default function DayClose({
                             1) Select business date
                         </h3>
                         <p className="text-sm text-indigo-800">
-                            Workflow: choose date -> Start day -> run transactions -> End day.
-                            Before start, all operations stay disabled except Start day.
+                            Workflow: choose date -&gt; Start day -&gt; run
+                            transactions -&gt; End day. Before start, all operations
+                            stay disabled except Start day.
                         </p>
                         <div className="max-w-xs">
                             <input
@@ -297,7 +298,10 @@ export default function DayClose({
                         </p>
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                             <Link
-                                href={route('journals.create-cash-in', query)}
+                                href={route('journals.create-cash-in', {
+                                    ...query,
+                                    date: selected,
+                                })}
                                 className={`rounded-md border px-3 py-2 text-sm ${
                                     dayOpen
                                         ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
@@ -307,7 +311,10 @@ export default function DayClose({
                                 Cash receive
                             </Link>
                             <Link
-                                href={route('journals.create-cash-out', query)}
+                                href={route('journals.create-cash-out', {
+                                    ...query,
+                                    date: selected,
+                                })}
                                 className={`rounded-md border px-3 py-2 text-sm ${
                                     dayOpen
                                         ? 'border-emerald-300 bg-emerald-50 text-emerald-900'

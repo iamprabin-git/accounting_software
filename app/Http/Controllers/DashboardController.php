@@ -5,7 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Concerns\ResolvesAccountingCompany;
 use App\Models\AccountingAuditLog;
 use App\Models\ChartAccount;
+use App\Models\Company;
 use App\Models\JournalEntry;
+use App\Models\Member;
+use App\Models\TellerDayClose;
+use App\Services\AccountingReportService;
 use App\Services\FinancialRatioService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -63,6 +67,9 @@ class DashboardController extends Controller
         $approvalSla = null;
         $auditIntegrityAlert = null;
         $auditIntegrityTrend = null;
+        $controlCenter = null;
+        $systemHealth = null;
+        $approvalInbox = null;
         if ($user->canViewAccountingReports()) {
             $company = $this->optionalAccountingCompany($request);
             if ($company !== null) {
@@ -83,6 +90,18 @@ class DashboardController extends Controller
                     companyId: $company->id,
                     forAdmin: $user->isAdmin(),
                 );
+                $controlCenter = $this->makeControlCenterPayload(
+                    companyId: $company->id,
+                    forAdmin: $user->isAdmin(),
+                );
+                $systemHealth = $this->makeSystemHealthPayload(
+                    companyId: $company->id,
+                    forAdmin: $user->isAdmin(),
+                );
+                $approvalInbox = $this->makeApprovalInboxPayload(
+                    companyId: $company->id,
+                    forAdmin: $user->isAdmin(),
+                );
             }
         }
 
@@ -98,6 +117,9 @@ class DashboardController extends Controller
             'approvalSla' => $approvalSla,
             'auditIntegrityAlert' => $auditIntegrityAlert,
             'auditIntegrityTrend' => $auditIntegrityTrend,
+            'controlCenter' => $controlCenter,
+            'systemHealth' => $systemHealth,
+            'approvalInbox' => $approvalInbox,
         ]);
     }
 
@@ -200,6 +222,145 @@ class DashboardController extends Controller
 
         return [
             'points' => $points,
+            'admin_company_id' => $forAdmin ? $companyId : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function makeControlCenterPayload(int $companyId, bool $forAdmin): array
+    {
+        $today = now()->toDateString();
+
+        $pendingMembers = Member::query()
+            ->where('company_id', $companyId)
+            ->where('status', Member::STATUS_PENDING)
+            ->count();
+
+        $pendingChartAccounts = ChartAccount::query()
+            ->where('company_id', $companyId)
+            ->where('approval_status', ChartAccount::STATUS_PENDING)
+            ->count();
+
+        $pendingJournals = JournalEntry::query()
+            ->where('company_id', $companyId)
+            ->where('status', JournalEntry::STATUS_PENDING)
+            ->count();
+
+        $openTellerDay = TellerDayClose::query()
+            ->where('company_id', $companyId)
+            ->whereDate('close_date', $today)
+            ->where('day_status', TellerDayClose::STATUS_OPEN)
+            ->latest('id')
+            ->first();
+
+        $teller = [
+            'is_open' => $openTellerDay !== null,
+            'close_date' => $openTellerDay?->close_date?->toDateString(),
+            'closing_error_cents' => (int) ($openTellerDay?->closing_error_cents ?? 0),
+            'cash_received_cents' => (int) ($openTellerDay?->cash_received_cents ?? 0),
+            'system_cash_cents' => (int) ($openTellerDay?->system_cash_cents ?? 0),
+        ];
+
+        return [
+            'pending' => [
+                'members' => $pendingMembers,
+                'chart_accounts' => $pendingChartAccounts,
+                'journals' => $pendingJournals,
+                'total' => $pendingMembers + $pendingChartAccounts + $pendingJournals,
+            ],
+            'teller' => $teller,
+            'admin_company_id' => $forAdmin ? $companyId : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function makeSystemHealthPayload(int $companyId, bool $forAdmin): array
+    {
+        $company = Company::query()->findOrFail($companyId);
+        $tb = (new AccountingReportService($companyId))->trialBalance(
+            asOf: now(),
+            showZero: true,
+        );
+        $tbDebit = (int) ($tb['totals']['debit_cents'] ?? 0);
+        $tbCredit = (int) ($tb['totals']['credit_cents'] ?? 0);
+        $tbDelta = $tbDebit - $tbCredit;
+
+        $lockDate = $company->journal_lock_date?->toDateString();
+        $lockAgeDays = $company->journal_lock_date
+            ? (int) $company->journal_lock_date->diffInDays(now())
+            : null;
+
+        return [
+            'trial_balance' => [
+                'debit_cents' => $tbDebit,
+                'credit_cents' => $tbCredit,
+                'delta_cents' => $tbDelta,
+                'is_balanced' => $tbDelta === 0,
+            ],
+            'period_lock' => [
+                'lock_date' => $lockDate,
+                'lock_reason' => $company->journal_lock_reason,
+                'last_close_type' => $company->last_period_close_type,
+                'lock_age_days' => $lockAgeDays,
+                'is_set' => $lockDate !== null,
+            ],
+            'admin_company_id' => $forAdmin ? $companyId : null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function makeApprovalInboxPayload(int $companyId, bool $forAdmin): array
+    {
+        $pendingMembers = Member::query()
+            ->where('company_id', $companyId)
+            ->where('status', Member::STATUS_PENDING)
+            ->orderBy('created_at')
+            ->limit(5)
+            ->get(['id', 'member_number', 'name', 'created_at'])
+            ->map(fn (Member $m) => [
+                'id' => $m->id,
+                'label' => '#'.($m->member_number ?? '—').' '.$m->name,
+                'created_at' => $m->created_at?->toIso8601String(),
+            ])
+            ->all();
+
+        $pendingChartAccounts = ChartAccount::query()
+            ->where('company_id', $companyId)
+            ->where('approval_status', ChartAccount::STATUS_PENDING)
+            ->orderBy('created_at')
+            ->limit(5)
+            ->get(['id', 'code', 'name', 'created_at'])
+            ->map(fn (ChartAccount $a) => [
+                'id' => $a->id,
+                'label' => trim(($a->code ? $a->code.' ' : '').$a->name),
+                'created_at' => $a->created_at?->toIso8601String(),
+            ])
+            ->all();
+
+        $pendingJournals = JournalEntry::query()
+            ->where('company_id', $companyId)
+            ->where('status', JournalEntry::STATUS_PENDING)
+            ->orderBy('submitted_at')
+            ->orderBy('id')
+            ->limit(5)
+            ->get(['id', 'reference', 'submitted_at'])
+            ->map(fn (JournalEntry $j) => [
+                'id' => $j->id,
+                'label' => 'Journal #'.$j->id.($j->reference ? ' · '.$j->reference : ''),
+                'created_at' => $j->submitted_at?->toIso8601String(),
+            ])
+            ->all();
+
+        return [
+            'members' => $pendingMembers,
+            'chart_accounts' => $pendingChartAccounts,
+            'journals' => $pendingJournals,
             'admin_company_id' => $forAdmin ? $companyId : null,
         ];
     }

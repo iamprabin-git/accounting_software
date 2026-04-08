@@ -55,11 +55,19 @@ export default function LoanSavingsProductModal({
         amount: '',
         memo: '',
         company_id: isAdmin ? String(currentCompanyId ?? '') : '',
+        transaction_date: todayIsoDate(),
+        debit_chart_account_id: '',
+        credit_chart_account_id: '',
+        reference: '',
     });
     const withdrawForm = useForm({
         amount: '',
         memo: '',
         company_id: isAdmin ? String(currentCompanyId ?? '') : '',
+        transaction_date: todayIsoDate(),
+        debit_chart_account_id: '',
+        credit_chart_account_id: '',
+        reference: '',
     });
     const adjustForm = useForm({
         amount: '',
@@ -202,6 +210,8 @@ export default function LoanSavingsProductModal({
     useEffect(() => {
         if (isAdmin && currentCompanyId) {
             const c = String(currentCompanyId);
+            depositForm.setData('company_id', c);
+            withdrawForm.setData('company_id', c);
             disburseForm.setData('company_id', c);
             installmentForm.setData('company_id', c);
             penaltyForm.setData('company_id', c);
@@ -1191,6 +1201,164 @@ export default function LoanSavingsProductModal({
                                     }
                                 />
                             )}
+                            {(category === 'savings' ||
+                                category === 'loan') && (
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="sm:col-span-2">
+                                        <InputLabel value="Transaction date" />
+                                        <TextInput
+                                            type="date"
+                                            className="mt-1 block w-full"
+                                            value={
+                                                depositForm.data.transaction_date
+                                            }
+                                            onChange={(e) =>
+                                                depositForm.setData(
+                                                    'transaction_date',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            required
+                                        />
+                                        <InputError
+                                            message={
+                                                depositForm.errors
+                                                    .transaction_date
+                                            }
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <InputLabel
+                                            value={
+                                                category === 'savings'
+                                                    ? 'Dr account (Cash / Bank)'
+                                                    : 'Dr account (Member loan)'
+                                            }
+                                        />
+                                        {category === 'savings' ? (
+                                            <select
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                value={
+                                                    depositForm.data
+                                                        .debit_chart_account_id
+                                                }
+                                                onChange={(e) =>
+                                                    depositForm.setData(
+                                                        'debit_chart_account_id',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                required
+                                            >
+                                                <option value="">
+                                                    Select cash / bank…
+                                                </option>
+                                                {cashBankAccounts.map((a) => (
+                                                    <option
+                                                        key={a.id}
+                                                        value={a.id}
+                                                    >
+                                                        {a.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <TextInput
+                                                className="mt-1 block w-full bg-gray-100"
+                                                value={
+                                                    loanMemberAccount?.label ||
+                                                    row?.account_number ||
+                                                    'Member loan account (created on post if needed)'
+                                                }
+                                                readOnly
+                                            />
+                                        )}
+                                        <InputError
+                                            message={
+                                                depositForm.errors
+                                                    .debit_chart_account_id
+                                            }
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <InputLabel
+                                            value={
+                                                category === 'savings'
+                                                    ? 'Cr account (Member personal)'
+                                                    : 'Cr account (Cash / Bank)'
+                                            }
+                                        />
+                                        {category === 'savings' ? (
+                                            <TextInput
+                                                className="mt-1 block w-full bg-gray-100"
+                                                value={
+                                                    savingsMemberAccount?.label ||
+                                                    row?.account_number ||
+                                                    'Member savings liability (created on post if needed)'
+                                                }
+                                                readOnly
+                                            />
+                                        ) : (
+                                            <select
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                value={
+                                                    depositForm.data
+                                                        .credit_chart_account_id
+                                                }
+                                                onChange={(e) =>
+                                                    depositForm.setData(
+                                                        'credit_chart_account_id',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                required
+                                            >
+                                                <option value="">
+                                                    Select cash / bank…
+                                                </option>
+                                                {loanCashBankAccounts.map(
+                                                    (a) => (
+                                                        <option
+                                                            key={a.id}
+                                                            value={a.id}
+                                                        >
+                                                            {a.label}
+                                                        </option>
+                                                    ),
+                                                )}
+                                            </select>
+                                        )}
+                                        <InputError
+                                            message={
+                                                depositForm.errors
+                                                    .credit_chart_account_id
+                                            }
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <InputLabel value="Reference (optional)" />
+                                        <TextInput
+                                            className="mt-1 block w-full"
+                                            value={depositForm.data.reference}
+                                            onChange={(e) =>
+                                                depositForm.setData(
+                                                    'reference',
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        <InputError
+                                            message={
+                                                depositForm.errors.reference
+                                            }
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                             <div>
                                 <InputLabel value="Amount (NPR)" />
                                 <TextInput
@@ -1225,6 +1393,19 @@ export default function LoanSavingsProductModal({
                                     }
                                 />
                             </div>
+                            {category === 'savings' ? (
+                                <p className="text-xs text-gray-600">
+                                    Posts to the general ledger: debit cash/bank,
+                                    credit member savings liability (same as
+                                    product-based savings).
+                                </p>
+                            ) : category === 'loan' ? (
+                                <p className="text-xs text-gray-600">
+                                    Posts to the general ledger: debit member
+                                    loan receivable, credit cash/bank
+                                    (disbursement).
+                                </p>
+                            ) : null}
                             <PrimaryButton disabled={depositForm.processing}>
                                 Save deposit
                             </PrimaryButton>
@@ -1393,6 +1574,165 @@ export default function LoanSavingsProductModal({
                                     }
                                 />
                             )}
+                            {(category === 'savings' ||
+                                category === 'loan') && (
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="sm:col-span-2">
+                                        <InputLabel value="Transaction date" />
+                                        <TextInput
+                                            type="date"
+                                            className="mt-1 block w-full"
+                                            value={
+                                                withdrawForm.data
+                                                    .transaction_date
+                                            }
+                                            onChange={(e) =>
+                                                withdrawForm.setData(
+                                                    'transaction_date',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            required
+                                        />
+                                        <InputError
+                                            message={
+                                                withdrawForm.errors
+                                                    .transaction_date
+                                            }
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <InputLabel
+                                            value={
+                                                category === 'savings'
+                                                    ? 'Dr account (Member personal)'
+                                                    : 'Dr account (Cash / Bank)'
+                                            }
+                                        />
+                                        {category === 'savings' ? (
+                                            <TextInput
+                                                className="mt-1 block w-full bg-gray-100"
+                                                value={
+                                                    savingsMemberAccount?.label ||
+                                                    row?.account_number ||
+                                                    'Member savings liability (created on post if needed)'
+                                                }
+                                                readOnly
+                                            />
+                                        ) : (
+                                            <select
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                value={
+                                                    withdrawForm.data
+                                                        .debit_chart_account_id
+                                                }
+                                                onChange={(e) =>
+                                                    withdrawForm.setData(
+                                                        'debit_chart_account_id',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                required
+                                            >
+                                                <option value="">
+                                                    Select cash / bank…
+                                                </option>
+                                                {loanCashBankAccounts.map(
+                                                    (a) => (
+                                                        <option
+                                                            key={a.id}
+                                                            value={a.id}
+                                                        >
+                                                            {a.label}
+                                                        </option>
+                                                    ),
+                                                )}
+                                            </select>
+                                        )}
+                                        <InputError
+                                            message={
+                                                withdrawForm.errors
+                                                    .debit_chart_account_id
+                                            }
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <div>
+                                        <InputLabel
+                                            value={
+                                                category === 'savings'
+                                                    ? 'Cr account (Cash / Bank)'
+                                                    : 'Cr account (Member loan)'
+                                            }
+                                        />
+                                        {category === 'savings' ? (
+                                            <select
+                                                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                value={
+                                                    withdrawForm.data
+                                                        .credit_chart_account_id
+                                                }
+                                                onChange={(e) =>
+                                                    withdrawForm.setData(
+                                                        'credit_chart_account_id',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                required
+                                            >
+                                                <option value="">
+                                                    Select cash / bank…
+                                                </option>
+                                                {cashBankAccounts.map((a) => (
+                                                    <option
+                                                        key={a.id}
+                                                        value={a.id}
+                                                    >
+                                                        {a.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <TextInput
+                                                className="mt-1 block w-full bg-gray-100"
+                                                value={
+                                                    loanMemberAccount?.label ||
+                                                    row?.account_number ||
+                                                    'Member loan account (created on post if needed)'
+                                                }
+                                                readOnly
+                                            />
+                                        )}
+                                        <InputError
+                                            message={
+                                                withdrawForm.errors
+                                                    .credit_chart_account_id
+                                            }
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <InputLabel value="Reference (optional)" />
+                                        <TextInput
+                                            className="mt-1 block w-full"
+                                            value={withdrawForm.data.reference}
+                                            onChange={(e) =>
+                                                withdrawForm.setData(
+                                                    'reference',
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        <InputError
+                                            message={
+                                                withdrawForm.errors.reference
+                                            }
+                                            className="mt-1"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                             <div>
                                 <InputLabel value="Amount (NPR)" />
                                 <TextInput
@@ -1427,6 +1767,18 @@ export default function LoanSavingsProductModal({
                                     }
                                 />
                             </div>
+                            {category === 'savings' ? (
+                                <p className="text-xs text-gray-600">
+                                    Posts to the general ledger: debit member
+                                    savings liability, credit cash/bank.
+                                </p>
+                            ) : category === 'loan' ? (
+                                <p className="text-xs text-gray-600">
+                                    Posts to the general ledger: debit cash/bank,
+                                    credit member loan receivable (principal
+                                    repayment).
+                                </p>
+                            ) : null}
                             <PrimaryButton disabled={withdrawForm.processing}>
                                 Save withdrawal
                             </PrimaryButton>
@@ -1448,7 +1800,7 @@ export default function LoanSavingsProductModal({
                                 ← Back
                             </button>
                             <p className="text-sm text-gray-600">
-                                Enter a positive or negative dollar amount. A
+                                Enter a positive or negative NPR amount. A
                                 journal entry is posted for the absolute change;
                                 debit and credit follow the sign you intend
                                 (swap accounts if you need the opposite
@@ -1523,7 +1875,7 @@ export default function LoanSavingsProductModal({
                                 ← Back
                             </button>
                             <p className="text-sm text-gray-600">
-                                Enter a positive or negative dollar amount to
+                                Enter a positive or negative NPR amount to
                                 change the principal / balance.
                             </p>
                             {isAdmin && (

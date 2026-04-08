@@ -1,4 +1,6 @@
 import CompanyPicker from '@/Components/CompanyPicker';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { moneyFromCents } from '@/utils/money';
 import { Head, Link, router, usePage } from '@inertiajs/react';
@@ -79,22 +81,21 @@ export default function Ledger({
 
                     <div className="flex flex-wrap gap-2">
                         {Object.entries(CATEGORY_LABEL).map(([key, label]) => (
-                            <button
+                            <Button
                                 key={key}
                                 type="button"
+                                size="sm"
+                                variant={category === key ? 'default' : 'outline'}
                                 onClick={() => setCategory(key)}
-                                className={`rounded-md px-3 py-2 text-sm font-medium ${
-                                    category === key
-                                        ? 'bg-gray-800 text-white'
-                                        : 'bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-50'
-                                }`}
                             >
                                 {label}
-                            </button>
+                            </Button>
                         ))}
                     </div>
 
-                    <div className="overflow-hidden bg-white shadow sm:rounded-lg">
+                    <Card>
+                        <CardContent className="p-0 sm:p-0">
+                    <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
@@ -201,7 +202,7 @@ export default function Ledger({
                     </div>
 
                     {entries.links?.length > 3 && (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 border-t border-border px-4 py-3">
                             {entries.links.map((link, i) =>
                                 link.url ? (
                                     <button
@@ -233,6 +234,8 @@ export default function Ledger({
                             )}
                         </div>
                     )}
+                        </CardContent>
+                    </Card>
                 </div>
             </div>
         </AuthenticatedLayout>

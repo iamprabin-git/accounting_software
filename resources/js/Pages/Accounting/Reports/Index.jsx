@@ -1,12 +1,13 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import PrintLetterhead from '@/Components/PrintLetterhead';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, usePage } from '@inertiajs/react';
 
 const cards = [
     {
         title: 'Trial balance',
-        desc: 'Debit and credit balances by account (approved entries only).',
+        desc: 'Debit and credit by account; member loans/savings shown as rolled-up totals (Σ lines).',
         href: 'reports.trial-balance',
     },
     {
@@ -16,7 +17,7 @@ const cards = [
     },
     {
         title: 'Balance sheet',
-        desc: 'Assets, liabilities, and equity as of a date.',
+        desc: 'Assets, liabilities, and equity; member loans/savings as single summary lines.',
         href: 'reports.balance-sheet',
     },
     {
@@ -40,13 +41,13 @@ const cards = [
         href: 'reports.par-aging',
     },
     {
-        title: 'Loan accounts list',
-        desc: 'Total loan principal with individual member loan accounts.',
+        title: 'Statement of loans',
+        desc: 'Per-loan balances with member reference, email, phone, and product.',
         href: 'reports.loan-accounts',
     },
     {
-        title: 'Savings accounts list',
-        desc: 'Total savings balance with individual member savings accounts.',
+        title: 'Statement of savings',
+        desc: 'Per-savings balances with member reference, email, phone, and product.',
         href: 'reports.savings-accounts',
     },
 ];
@@ -91,14 +92,20 @@ export default function Index({ companies, currentCompanyId, letterhead }) {
                             <li key={c.href}>
                                 <Link
                                     href={route(c.href, q)}
-                                    className="block h-full rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow"
+                                    className="block h-full transition"
                                 >
-                                    <h3 className="font-semibold text-gray-900">
-                                        {c.title}
-                                    </h3>
-                                    <p className="mt-2 text-sm text-gray-600">
-                                        {c.desc}
-                                    </p>
+                                    <Card className="h-full border-border/70 transition hover:border-indigo-300 hover:shadow-md">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-base">
+                                                {c.title}
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <p className="text-sm text-muted-foreground">
+                                                {c.desc}
+                                            </p>
+                                        </CardContent>
+                                    </Card>
                                 </Link>
                             </li>
                         ))}

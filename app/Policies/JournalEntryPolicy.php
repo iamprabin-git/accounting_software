@@ -86,7 +86,7 @@ class JournalEntryPolicy
             return false;
         }
 
-        if (! $user->isAdmin() && $user->company_id !== $journalEntry->company_id) {
+        if ($user->company_id !== $journalEntry->company_id) {
             return false;
         }
 
@@ -110,7 +110,7 @@ class JournalEntryPolicy
             return false;
         }
 
-        if (! $user->isAdmin() && $user->company_id !== $journalEntry->company_id) {
+        if ($user->company_id !== $journalEntry->company_id) {
             return false;
         }
 

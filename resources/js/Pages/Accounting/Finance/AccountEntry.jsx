@@ -2,8 +2,9 @@ import LoanSavingsProductModal from '@/Components/LoanSavingsProductModal';
 import CompanyPicker from '@/Components/CompanyPicker';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { moneyFromCents } from '@/utils/money';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
@@ -87,9 +88,11 @@ export default function AccountEntry({
                         printed statements.
                     </p>
 
+                    <Card>
+                        <CardContent className="p-6 sm:p-8">
                     <form
                         onSubmit={submitLookup}
-                        className="space-y-5 bg-white p-6 shadow sm:rounded-lg"
+                        className="space-y-5"
                     >
                         <div>
                             <InputLabel htmlFor="category" value="Product type" />
@@ -130,20 +133,23 @@ export default function AccountEntry({
                             />
                         </div>
                         <div className="flex flex-wrap gap-3">
-                            <PrimaryButton disabled={processing}>
+                            <Button type="submit" disabled={processing}>
                                 Look up account
-                            </PrimaryButton>
+                            </Button>
+                            <Button variant="outline" size="sm" asChild>
                             <Link
                                 href={route('finance.positions.index', {
                                     category: data.category,
                                     ...companyQuery,
                                 })}
-                                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
                             >
                                 Open {categoryLabel} list
                             </Link>
+                            </Button>
                         </div>
                     </form>
+                        </CardContent>
+                    </Card>
 
                     {lookup_attempted && !resolved && (
                         <div
@@ -157,7 +163,8 @@ export default function AccountEntry({
                     )}
 
                     {resolved && (
-                        <div className="mt-6 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <Card className="mt-6">
+                            <CardContent className="p-5 sm:p-6">
                             <h3 className="text-base font-semibold text-gray-900">
                                 {resolved.title}
                             </h3>
@@ -184,14 +191,15 @@ export default function AccountEntry({
                                     {moneyFromCents(resolved.principal_cents)}
                                 </span>
                             </p>
-                            <button
+                            <Button
                                 type="button"
+                                className="mt-4"
                                 onClick={() => setSheetOpen(true)}
-                                className="mt-4 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
                             >
                                 Deposit, withdraw, statement, adjustment…
-                            </button>
-                        </div>
+                            </Button>
+                            </CardContent>
+                        </Card>
                     )}
                 </div>
             </div>

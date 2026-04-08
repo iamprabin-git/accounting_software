@@ -27,7 +27,6 @@ class TellerDayCloseController extends Controller
 
         $recent = TellerDayClose::query()
             ->where('company_id', $company->id)
-            ->where('user_id', $user->id)
             ->latest('close_date')
             ->limit(15)
             ->get()
@@ -49,7 +48,6 @@ class TellerDayCloseController extends Controller
 
         $openDay = TellerDayClose::query()
             ->where('company_id', $company->id)
-            ->where('user_id', $user->id)
             ->whereDate('close_date', $selectedDate)
             ->where('day_status', TellerDayClose::STATUS_OPEN)
             ->first();
@@ -96,7 +94,6 @@ class TellerDayCloseController extends Controller
 
         $exists = TellerDayClose::query()
             ->where('company_id', $company->id)
-            ->where('user_id', $user->id)
             ->whereDate('close_date', $validated['close_date'])
             ->exists();
 
@@ -148,7 +145,6 @@ class TellerDayCloseController extends Controller
 
         $open = TellerDayClose::query()
             ->where('company_id', $company->id)
-            ->where('user_id', $user->id)
             ->whereDate('close_date', $validated['close_date'])
             ->where('day_status', TellerDayClose::STATUS_OPEN)
             ->first();
@@ -220,7 +216,6 @@ class TellerDayCloseController extends Controller
 
         $exists = TellerDayClose::query()
             ->where('company_id', $company->id)
-            ->where('user_id', $user->id)
             ->whereDate('close_date', $validated['close_date'])
             ->exists();
 

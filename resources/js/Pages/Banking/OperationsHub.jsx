@@ -150,7 +150,7 @@ export default function OperationsHub({
                         <StatCard
                             title="Pending journals"
                             value={stats.pending_journals}
-                            sub={`${stats.member_groups} member groups`}
+                            sub="Awaiting company approval"
                             icon={ClipboardList}
                         />
                     </div>
@@ -247,7 +247,7 @@ export default function OperationsHub({
                                 <QuickLink
                                     href={route('member-groups.index', q)}
                                     title="Member groups"
-                                    desc="Group savings deposits &amp; loan collection sheets"
+                                    desc="Create and manage grouped members"
                                     disabled={!tellerDayOpenToday}
                                 />
                                 <QuickLink

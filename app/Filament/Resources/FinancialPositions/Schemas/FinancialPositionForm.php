@@ -31,7 +31,7 @@ class FinancialPositionForm
                     ->required()
                     ->maxLength(255),
                 TextInput::make('principal')
-                    ->label('Principal / balance (dollars)')
+                    ->label('Principal / balance (NPR)')
                     ->numeric()
                     ->default(0)
                     ->required(),

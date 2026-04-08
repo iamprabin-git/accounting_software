@@ -1,8 +1,9 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
-import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import { Button } from '@/Components/ui/button';
+import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { moneyFromCents } from '@/utils/money';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
@@ -111,7 +112,8 @@ export default function Show({
                         </div>
                     )}
 
-                    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow sm:rounded-lg">
+                    <Card>
+                        <CardContent className="p-4 sm:p-6">
                         <div className="flex flex-wrap gap-6 text-sm">
                             <div>
                                 <span className="text-gray-500">Closing qty</span>
@@ -149,12 +151,15 @@ export default function Show({
                             last-in-first-out) to value cost of goods sold for
                             that line.
                         </p>
-                    </div>
+                        </CardContent>
+                    </Card>
 
                     <div className="grid gap-6 lg:grid-cols-2">
+                        <Card>
+                            <CardContent className="p-4 sm:p-6">
                         <form
                             onSubmit={submitPurchase}
-                            className="space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow sm:rounded-lg"
+                            className="space-y-4"
                         >
                             <h3 className="text-sm font-semibold text-gray-900">
                                 Record purchase
@@ -247,15 +252,22 @@ export default function Show({
                                     }
                                 />
                             </div>
-                            <PrimaryButton disabled={purchaseForm.processing}>
+                            <Button
+                                type="submit"
+                                disabled={purchaseForm.processing}
+                            >
                                 Add stock
-                            </PrimaryButton>
+                            </Button>
                             <InputError message={errors.quantity} />
                         </form>
+                            </CardContent>
+                        </Card>
 
+                        <Card>
+                            <CardContent className="p-4 sm:p-6">
                         <form
                             onSubmit={submitSale}
-                            className="space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow sm:rounded-lg"
+                            className="space-y-4"
                         >
                             <h3 className="text-sm font-semibold text-gray-900">
                                 Record sale
@@ -329,14 +341,19 @@ export default function Show({
                                     }
                                 />
                             </div>
-                            <PrimaryButton disabled={saleForm.processing}>
+                            <Button
+                                type="submit"
+                                disabled={saleForm.processing}
+                            >
                                 Reduce stock ({methodLabel})
-                            </PrimaryButton>
+                            </Button>
                             <InputError message={errors.quantity} />
                         </form>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow">
                         <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
                             <h3 className="text-sm font-semibold text-gray-900">
                                 Open cost layers (lots)
@@ -402,7 +419,7 @@ export default function Show({
                         </table>
                     </div>
 
-                    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow">
                         <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
                             <h3 className="text-sm font-semibold text-gray-900">
                                 Recent movements
