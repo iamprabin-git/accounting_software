@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Accounting;
 
+use App\Http\Controllers\Concerns\AssertsNoCompanyHoliday;
 use App\Http\Controllers\Concerns\ResolvesAccountingCompany;
 use App\Http\Controllers\Controller;
 use App\Models\AccountingAuditLog;
@@ -22,6 +23,7 @@ use Inertia\Response;
 
 class JournalEntryController extends Controller
 {
+    use AssertsNoCompanyHoliday;
     use ResolvesAccountingCompany;
 
     public function index(Request $request): Response
@@ -351,6 +353,19 @@ class JournalEntryController extends Controller
             ]);
         }
 
+        try {
+            $this->assertNoCompanyHoliday(
+                $company->id,
+                $journalEntry->transaction_date->toDateString(),
+                'submit',
+            );
+        } catch (ValidationException $e) {
+            return redirect()->route('journals.show', array_merge(
+                ['journal' => $journalEntry->id],
+                $this->companyQuery($request),
+            ))->withErrors($e->errors());
+        }
+
         $journalEntry->update([
             'status' => JournalEntry::STATUS_PENDING,
             'submitted_at' => now(),
@@ -590,6 +605,8 @@ class JournalEntryController extends Controller
             ]);
         }
 
+        $this->assertNoCompanyHoliday($companyId, (string) $validated['transaction_date']);
+
         return [
             'reference' => $validated['reference'] ?? null,
             'memo' => $validated['memo'] ?? null,
@@ -700,6 +717,8 @@ class JournalEntryController extends Controller
                 'transaction_date' => __('Start the teller day first. Cash transactions are allowed only for open days.'),
             ]);
         }
+
+        $this->assertNoCompanyHoliday($company->id, $transactionDate);
 
         $counterpartLines = [];
         $totalCents = 0;

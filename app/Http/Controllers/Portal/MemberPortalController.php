@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers\Portal;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\ResolvesAccountingCompany;
+use App\Http\Controllers\Controller;
 use App\Models\FinancialPosition;
 use App\Models\FinancialPositionMovement;
+use App\Models\PortalMessage;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -71,7 +72,12 @@ class MemberPortalController extends Controller
                 'status' => $member->status,
                 'email' => $member->email,
             ] : null,
-            'company' => ['name' => $company->name],
+            'company' => [
+                'name' => $company->name,
+                'contact_email' => $company->contact_email,
+                'phone' => $company->phone,
+                'address' => $company->address,
+            ],
             'loans' => $loans,
             'savings' => $savings,
         ]);
@@ -192,6 +198,7 @@ class MemberPortalController extends Controller
             'movements' => $movements,
             'companies' => [],
             'currentCompanyId' => $company->id,
+            'payment_info' => $this->companyPaymentDetailsForPortal($company),
         ]);
     }
 
@@ -202,14 +209,14 @@ class MemberPortalController extends Controller
 
         $company = $this->accountingCompany($request);
 
-        $rows = \App\Models\PortalMessage::query()
+        $rows = PortalMessage::query()
             ->where('company_id', $company->id)
             ->where('end_user_id', $user->id)
             ->with('author:id,name')
             ->orderBy('created_at')
             ->orderBy('id')
             ->get()
-            ->map(fn (\App\Models\PortalMessage $m) => [
+            ->map(fn (PortalMessage $m) => [
                 'id' => $m->id,
                 'body' => $m->body,
                 'created_at' => $m->created_at?->toIso8601String(),
@@ -221,6 +228,7 @@ class MemberPortalController extends Controller
             'messages' => $rows,
             'company_name' => $company->name,
             'can_chat' => true,
+            'payment_info' => $this->companyPaymentDetailsForPortal($company),
         ]);
     }
 
@@ -235,7 +243,7 @@ class MemberPortalController extends Controller
 
         $company = $this->accountingCompany($request);
 
-        \App\Models\PortalMessage::query()->create([
+        PortalMessage::query()->create([
             'company_id' => $company->id,
             'end_user_id' => $user->id,
             'author_user_id' => $user->id,

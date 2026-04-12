@@ -1,10 +1,11 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import PlatformAdminCompanySwitcher from '@/Components/PlatformAdminCompanySwitcher';
 import PortalBottomNav from '@/Components/Portal/PortalBottomNav';
 import ThemeLanguageControls from '@/Components/ThemeLanguageControls';
 import Dropdown from '@/Components/Dropdown';
 import SidebarNavLink from '@/Components/SidebarNavLink';
 import { Link, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 function buildNavSections(
@@ -47,6 +48,14 @@ function buildNavSections(
     const finUrl = (cat, ws) =>
         route('finance.positions.index', { category: cat, workspace: ws });
 
+    const companyWorkspaceActive =
+        route().current('company.profile.*') ||
+        route().current('company.configuration.*') ||
+        route().current('company.holidays.*') ||
+        route().current('company.integrations.*') ||
+        route().current('company.team.*') ||
+        route().current('company.customer-chat.*');
+
     const mainItems = [
         {
             href: route('dashboard'),
@@ -54,13 +63,18 @@ function buildNavSections(
             active: route().current('dashboard'),
         },
     ];
-    if (user.role === 'admin' && user.can_view_reports) {
+
+    if (
+        user.role === 'company' ||
+        (user.role === 'staff' && user.company_id)
+    ) {
         mainItems.push({
-            href: route('company.integrations.index'),
-            label: 'Integrations & API',
-            active: route().current('company.integrations.*'),
+            href: route('company.profile.edit'),
+            label: t('nav.company'),
+            active: companyWorkspaceActive,
         });
     }
+
     sections.push({
         id: 'main',
         title: t('nav.main'),
@@ -91,6 +105,71 @@ function buildNavSections(
                 ],
             });
         }
+        return sections;
+    }
+
+    if (user.role === 'admin') {
+        const q = currentCompanyId ? { company_id: currentCompanyId } : {};
+
+        if (currentCompanyId) {
+            const mainSection = sections.find((s) => s.id === 'main');
+            if (mainSection) {
+                mainSection.items.push({
+                    href: route('company.profile.edit', q),
+                    label: t('nav.company'),
+                    active: companyWorkspaceActive,
+                });
+            }
+        }
+
+        if (user.can_view_reports && currentCompanyId) {
+            const supportItems = [
+                {
+                    href: route('journals.index', q),
+                    label: t('nav.journals'),
+                    active:
+                        route().current('journals.*') &&
+                        !route().current('journals.create') &&
+                        !route().current('journals.create-cash-in') &&
+                        !route().current('journals.create-cash-out'),
+                },
+                {
+                    href: route('reports.index', q),
+                    label: t('nav.reports'),
+                    active: route().current('reports.*'),
+                },
+                {
+                    href: route('audit-trail.index', q),
+                    label: t('nav.auditTrail'),
+                    active: route().current('audit-trail.*'),
+                },
+                {
+                    href: route('bank-reconciliation.index', q),
+                    label: t('nav.bankReconciliation'),
+                    active: route().current('bank-reconciliation.*'),
+                },
+            ];
+            if (cf.members) {
+                supportItems.push({
+                    href: route('members.index', q),
+                    label: t('nav.members'),
+                    active: route().current('members.*'),
+                });
+            }
+            if (user.can_manage_chart_of_accounts) {
+                supportItems.push({
+                    href: route('chart-accounts.index', q),
+                    label: t('nav.chartOfAccounts'),
+                    active: route().current('chart-accounts.*'),
+                });
+            }
+            sections.push({
+                id: 'platform_support',
+                title: t('nav.platformSupport'),
+                items: supportItems,
+            });
+        }
+
         return sections;
     }
 
@@ -128,57 +207,6 @@ function buildNavSections(
             href: route('banking.operations', bankingQ),
             label: 'Operations hub',
             active: route().current('banking.operations'),
-        });
-    }
-
-    if (user.role === 'company') {
-        const companyItems = [
-            {
-                href: route('company.profile.edit'),
-                label: t('nav.companyProfile'),
-                active: route().current('company.profile.*'),
-            },
-        ];
-        if (user.can_manage_team) {
-            companyItems.push({
-                href: route('company.team.index'),
-                label: t('nav.team'),
-                active: route().current('company.team.*'),
-            });
-        }
-        if (cf.members) {
-            companyItems.push({
-                href: route('company.customer-chat.index'),
-                label: t('nav.customerMessages'),
-                active: route().current('company.customer-chat.*'),
-            });
-        }
-        sections.push({ id: 'company', title: t('nav.company'), items: companyItems });
-    } else if (user.can_manage_team) {
-        sections.push({
-            id: 'organization',
-            title: t('nav.organization'),
-            items: [
-                {
-                    href: route('company.team.index'),
-                    label: t('nav.team'),
-                    active: route().current('company.team.*'),
-                },
-            ],
-        });
-    }
-
-    if (user.role === 'staff' && cf.members) {
-        sections.push({
-            id: 'customers',
-            title: t('nav.customers'),
-            items: [
-                {
-                    href: route('company.customer-chat.index'),
-                    label: t('nav.customerMessages'),
-                    active: route().current('company.customer-chat.*'),
-                },
-            ],
         });
     }
 
@@ -292,7 +320,7 @@ function buildNavSections(
         );
         sections.push({
             id: 'cbs',
-            title: 'CBS',
+            title: t('nav.cbs'),
             items: rankedCbsItems,
         });
     }
@@ -387,12 +415,12 @@ function buildNavSections(
                 },
                 {
                     href: route('audit-trail.index'),
-                    label: 'Audit trail',
+                    label: t('nav.auditTrail'),
                     active: route().current('audit-trail.*'),
                 },
                 {
                     href: route('bank-reconciliation.index'),
-                    label: 'Bank reconciliation',
+                    label: t('nav.bankReconciliation'),
                     active: route().current('bank-reconciliation.*'),
                 },
             ],
@@ -440,6 +468,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
     const companyFeatures = page.props.company_features;
     const currentCompanyId = page.props.current_company_id;
+    const currentCompanyRecord = page.props.current_company;
     const approvalNotifications = page.props.approval_notifications ?? {
         total: 0,
         pending_members: 0,
@@ -477,11 +506,20 @@ export default function AuthenticatedLayout({ header, children }) {
 
     const closeMobile = () => setMobileMenuOpen(false);
 
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [page.url]);
+
     const isEndUser = user.role === 'end_user';
 
     const companyLine =
         user.role === 'admin'
-            ? { label: t('layout.access'), name: t('layout.allCompanies') }
+            ? currentCompanyRecord?.name
+                ? { label: t('layout.supporting'), name: currentCompanyRecord.name }
+                : {
+                      label: t('layout.access'),
+                      name: t('layout.selectOrganization'),
+                  }
             : user.company?.name
               ? { label: t('layout.company'), name: user.company.name }
               : { label: t('layout.company'), name: '—' };
@@ -543,6 +581,9 @@ export default function AuthenticatedLayout({ header, children }) {
                         </svg>
                     </button>
                 </div>
+                {user.role === 'admin' ? (
+                    <PlatformAdminCompanySwitcher onNavigate={closeMobile} />
+                ) : null}
                 <SidebarNav sections={sections} onNavigate={closeMobile} />
             </aside>
 
@@ -559,6 +600,9 @@ export default function AuthenticatedLayout({ header, children }) {
                         </span>
                     </Link>
                 </div>
+                {user.role === 'admin' ? (
+                    <PlatformAdminCompanySwitcher className="border-b border-slate-800 py-2" />
+                ) : null}
                 <SidebarNav sections={sections} />
             </aside>
 
@@ -656,12 +700,25 @@ export default function AuthenticatedLayout({ header, children }) {
                         </div>
 
                         <div className="relative shrink-0">
-                            <Dropdown>
+                            <Dropdown key={page.url}>
                                 <Dropdown.Trigger>
                                     <button
                                         type="button"
                                         className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-border dark:bg-background dark:text-foreground dark:hover:bg-muted"
                                     >
+                                        {user?.avatar_display_url ? (
+                                            <img
+                                                src={user.avatar_display_url}
+                                                alt=""
+                                                className="h-8 w-8 shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-background"
+                                            />
+                                        ) : (
+                                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-bold text-gray-600 dark:bg-muted dark:text-muted-foreground">
+                                                {(user?.name || '?')
+                                                    .charAt(0)
+                                                    .toUpperCase()}
+                                            </span>
+                                        )}
                                         <span className="hidden max-w-[8rem] truncate sm:inline">
                                             {user?.name}
                                         </span>
@@ -704,13 +761,13 @@ export default function AuthenticatedLayout({ header, children }) {
 
                 {header && (
                     <div className="cbs-topbar border-b border-gray-200/70 dark:border-border/70">
-                        <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
-                            {header}
+                        <div className="mx-auto min-w-0 max-w-7xl px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+                            <div className="min-w-0 break-words">{header}</div>
                         </div>
                     </div>
                 )}
 
-                <main className="flex-1">
+                <main className="min-w-0 flex-1 overflow-x-hidden">
                     {flash?.error && (
                         <div className="print:hidden">
                             <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">

@@ -16,6 +16,19 @@ class TellerDayCloseController extends Controller
 {
     use ResolvesAccountingCompany;
 
+    /**
+     * @return array<string, string|int>
+     */
+    private function tellerCreateRedirectParams(Request $request, int $companyId, string $date): array
+    {
+        $query = ['date' => $date];
+        if ($request->user()?->isAdmin()) {
+            $query['company_id'] = $companyId;
+        }
+
+        return $query;
+    }
+
     public function create(Request $request): Response
     {
         $user = $request->user();
@@ -97,10 +110,17 @@ class TellerDayCloseController extends Controller
             ->whereDate('close_date', $validated['close_date'])
             ->exists();
 
+        $date = (string) $validated['close_date'];
+
         if ($exists) {
-            return back()->withErrors([
-                'close_date' => __('Day already started/closed for this date.'),
-            ]);
+            return redirect()
+                ->route(
+                    'teller.day-close.create',
+                    $this->tellerCreateRedirectParams($request, $company->id, $date),
+                )
+                ->withErrors([
+                    'close_date' => __('Day already started/closed for this date.'),
+                ]);
         }
 
         $opening = (int) round(((float) $validated['vault_opening_cash']) * 100);
@@ -108,7 +128,7 @@ class TellerDayCloseController extends Controller
         TellerDayClose::query()->create([
             'company_id' => $company->id,
             'user_id' => $user->id,
-            'close_date' => $validated['close_date'],
+            'close_date' => $date,
             'day_status' => TellerDayClose::STATUS_OPEN,
             'opening_cash_cents' => $opening,
             'vault_opening_cash_cents' => $opening,
@@ -119,7 +139,12 @@ class TellerDayCloseController extends Controller
             'started_at' => now(),
         ]);
 
-        return back()->with('status', __('Day started. Cash transactions are now enabled.'));
+        return redirect()
+            ->route(
+                'teller.day-close.create',
+                $this->tellerCreateRedirectParams($request, $company->id, $date),
+            )
+            ->with('status', __('Day started. Cash transactions are now enabled.'));
     }
 
     public function end(Request $request): RedirectResponse
@@ -149,10 +174,17 @@ class TellerDayCloseController extends Controller
             ->where('day_status', TellerDayClose::STATUS_OPEN)
             ->first();
 
+        $date = (string) $validated['close_date'];
+
         if (! $open) {
-            return back()->withErrors([
-                'close_date' => __('No open day found for this date.'),
-            ]);
+            return redirect()
+                ->route(
+                    'teller.day-close.create',
+                    $this->tellerCreateRedirectParams($request, $company->id, $date),
+                )
+                ->withErrors([
+                    'close_date' => __('No open day found for this date.'),
+                ]);
         }
 
         $counted = (int) round(((float) $validated['counted_cash']) * 100);
@@ -161,15 +193,25 @@ class TellerDayCloseController extends Controller
         $error = $counted - $system;
 
         if ($counted !== $returned) {
-            return back()->withErrors([
-                'vault_returned_cash' => __('Returned amount must equal counted cash.'),
-            ]);
+            return redirect()
+                ->route(
+                    'teller.day-close.create',
+                    $this->tellerCreateRedirectParams($request, $company->id, $date),
+                )
+                ->withErrors([
+                    'vault_returned_cash' => __('Returned amount must equal counted cash.'),
+                ]);
         }
 
         if ($error !== 0) {
-            return back()->withErrors([
-                'system_cash' => __('End of day can only complete when cash error is zero (counted equals system cash).'),
-            ]);
+            return redirect()
+                ->route(
+                    'teller.day-close.create',
+                    $this->tellerCreateRedirectParams($request, $company->id, $date),
+                )
+                ->withErrors([
+                    'system_cash' => __('End of day can only complete when cash error is zero (counted equals system cash).'),
+                ]);
         }
 
         $open->update([
@@ -183,7 +225,12 @@ class TellerDayCloseController extends Controller
             'ended_at' => now(),
         ]);
 
-        return back()->with('status', __('Day ended successfully. Vault returned and variance is zero.'));
+        return redirect()
+            ->route(
+                'teller.day-close.create',
+                $this->tellerCreateRedirectParams($request, $company->id, $date),
+            )
+            ->with('status', __('Day ended successfully. Vault returned and variance is zero.'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -214,21 +261,28 @@ class TellerDayCloseController extends Controller
             ? (int) round(((float) $validated['expected_cash']) * 100)
             : null;
 
+        $date = (string) $validated['close_date'];
+
         $exists = TellerDayClose::query()
             ->where('company_id', $company->id)
-            ->whereDate('close_date', $validated['close_date'])
+            ->whereDate('close_date', $date)
             ->exists();
 
         if ($exists) {
-            return back()->withErrors([
-                'close_date' => __('You already recorded a day close for this date.'),
-            ]);
+            return redirect()
+                ->route(
+                    'teller.day-close.create',
+                    $this->tellerCreateRedirectParams($request, $company->id, $date),
+                )
+                ->withErrors([
+                    'close_date' => __('You already recorded a day close for this date.'),
+                ]);
         }
 
         TellerDayClose::query()->create([
             'company_id' => $company->id,
             'user_id' => $user->id,
-            'close_date' => $validated['close_date'],
+            'close_date' => $date,
             'day_status' => TellerDayClose::STATUS_CLOSED,
             'opening_cash_cents' => $opening,
             'vault_opening_cash_cents' => $opening,
@@ -242,6 +296,11 @@ class TellerDayCloseController extends Controller
             'ended_at' => now(),
         ]);
 
-        return back()->with('status', __('Day close saved.'));
+        return redirect()
+            ->route(
+                'teller.day-close.create',
+                $this->tellerCreateRedirectParams($request, $company->id, $date),
+            )
+            ->with('status', __('Day close saved.'));
     }
 }

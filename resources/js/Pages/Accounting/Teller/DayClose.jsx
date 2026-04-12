@@ -1,8 +1,10 @@
 import CompanyPicker from '@/Components/CompanyPicker';
 import InputError from '@/Components/InputError';
+import WorkDatePicker from '@/Components/WorkDatePicker';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 function money(cents) {
     return (Number(cents || 0) / 100).toLocaleString(undefined, {
@@ -19,6 +21,7 @@ export default function DayClose({
     companies,
     currentCompanyId,
 }) {
+    const { t } = useTranslation();
     const user = usePage().props.auth.user ?? {};
     const isAdmin = user.role === 'admin';
     const query = isAdmin && currentCompanyId ? { company_id: currentCompanyId } : {};
@@ -40,7 +43,10 @@ export default function DayClose({
     });
 
     const dayOpen = Boolean(openDay);
-    const selected = selectedDate || new Date().toISOString().slice(0, 10);
+    const businessDate =
+        selectedDate || new Date().toISOString().slice(0, 10);
+    const operationalDate =
+        dayOpen && openDay?.close_date ? openDay.close_date : businessDate;
 
     useEffect(() => {
         if (isAdmin && currentCompanyId) {
@@ -51,10 +57,12 @@ export default function DayClose({
     }, [currentCompanyId, isAdmin]);
 
     useEffect(() => {
-        startForm.setData('close_date', selected);
-        endForm.setData('close_date', selected);
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- keep forms on selected business date
-    }, [selected]);
+        const d =
+            selectedDate || new Date().toISOString().slice(0, 10);
+        startForm.setData('close_date', d);
+        endForm.setData('close_date', d);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- sync when server date (URL) changes
+    }, [selectedDate]);
 
     const submitStart = (e) => {
         e.preventDefault();
@@ -69,14 +77,14 @@ export default function DayClose({
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                         <h2 className="text-xl font-semibold text-gray-800">
-                            Teller day close
+                            Teller day
                         </h2>
                         <p className="mt-1 text-sm text-gray-600">
-                            Record opening float, physical cash count, and optional
-                            expected balance for the day.
+                            Open and close the till, record the vault float, and
+                            reconcile physical cash to the system.
                         </p>
                     </div>
                     {companies?.length > 0 && (
@@ -91,66 +99,74 @@ export default function DayClose({
                 </div>
             }
         >
-            <Head title="Teller day close" />
+            <Head title="Teller day" />
 
-            <div className="py-8">
-                <div className="mx-auto max-w-3xl space-y-8 sm:px-6 lg:px-8">
-                    <div className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50 p-4">
-                        <h3 className="text-base font-semibold text-indigo-900">
-                            1) Select business date
-                        </h3>
-                        <p className="text-sm text-indigo-800">
-                            Workflow: choose date -&gt; Start day -&gt; run
-                            transactions -&gt; End day. Before start, all operations
-                            stay disabled except Start day.
+            <div className="py-6 sm:py-8">
+                <div className="mx-auto w-full min-w-0 max-w-3xl space-y-6 px-4 sm:space-y-8 sm:px-6 lg:px-8">
+                    <div className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50 p-3 sm:p-4">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-700">
+                            {t('companyWorkspace.tellerStepEyebrow')} 1
                         </p>
-                        <div className="max-w-xs">
-                            <input
-                                type="date"
-                                className="mt-1 w-full rounded-md border-indigo-300 text-sm"
-                                value={selected}
-                                onChange={(e) =>
+                        <h3 className="text-base font-semibold text-indigo-950">
+                            {t('companyWorkspace.tellerStep1Title')}
+                        </h3>
+                        <p className="text-sm text-indigo-900/90">
+                            {t('companyWorkspace.tellerStep1Body')}
+                        </p>
+                        <div className="w-full max-w-full sm:max-w-xs">
+                            <WorkDatePicker
+                                id="teller_business_date"
+                                label="Calendar date"
+                                value={businessDate}
+                                allowNonWorkingDays
+                                onChange={(iso) =>
                                     router.get(
                                         route('teller.day-close.create'),
                                         {
                                             ...(isAdmin && currentCompanyId
                                                 ? { company_id: currentCompanyId }
                                                 : {}),
-                                            date: e.target.value,
+                                            date: iso,
                                         },
                                         { preserveState: true, replace: true },
                                     )
                                 }
                             />
+                            <p className="mt-2 text-xs text-indigo-800">
+                                Holidays and weekends are allowed for opening the
+                                till. Cash and journal lines still need a working
+                                transaction date when you post.
+                            </p>
                         </div>
                     </div>
 
                     {!openDay ? (
                         <form
                             onSubmit={submitStart}
-                            className="space-y-4 rounded-lg bg-white p-6 shadow"
+                            className="space-y-4 rounded-lg bg-white p-4 shadow sm:p-6"
                         >
                             {isAdmin && (
                                 <input type="hidden" name="company_id" value={startForm.data.company_id} />
                             )}
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+                                {t('companyWorkspace.tellerStepEyebrow')} 2
+                            </p>
                             <h3 className="text-base font-semibold text-gray-900">
-                                Start of day
+                                {t('companyWorkspace.tellerStep2StartTitle')}
                             </h3>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">
-                                        Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        className="mt-1 w-full rounded-md border-gray-300 text-sm"
+                                    <WorkDatePicker
+                                        id="teller_start_close_date"
+                                        label="Date"
                                         value={startForm.data.close_date}
-                                        onChange={(e) =>
-                                            startForm.setData('close_date', e.target.value)
+                                        onChange={(iso) =>
+                                            startForm.setData('close_date', iso)
                                         }
+                                        error={startForm.errors.close_date}
                                         required
+                                        allowNonWorkingDays
                                     />
-                                    <InputError message={startForm.errors.close_date} className="mt-1" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">
@@ -192,32 +208,33 @@ export default function DayClose({
                     ) : (
                         <form
                             onSubmit={submitEnd}
-                            className="space-y-4 rounded-lg border border-emerald-200 bg-emerald-50 p-6 shadow"
+                            className="space-y-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 shadow sm:p-6"
                         >
                             {isAdmin && (
                                 <input type="hidden" name="company_id" value={endForm.data.company_id} />
                             )}
-                            <h3 className="text-base font-semibold text-emerald-900">
-                                End of day
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-800">
+                                {t('companyWorkspace.tellerStepEyebrow')} 2
+                            </p>
+                            <h3 className="text-base font-semibold text-emerald-950">
+                                {t('companyWorkspace.tellerStep2EndTitle')}
                             </h3>
                             <p className="text-sm text-emerald-800">
                                 Open day for {openDay.close_date}. Vault opening: {money(openDay.vault_opening_cash_cents)}
                             </p>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700">
-                                        Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        className="mt-1 w-full rounded-md border-gray-300 text-sm"
+                                    <WorkDatePicker
+                                        id="teller_end_close_date"
+                                        label="Date"
                                         value={endForm.data.close_date}
-                                        onChange={(e) =>
-                                            endForm.setData('close_date', e.target.value)
+                                        onChange={(iso) =>
+                                            endForm.setData('close_date', iso)
                                         }
+                                        error={endForm.errors.close_date}
                                         required
+                                        allowNonWorkingDays
                                     />
-                                    <InputError message={endForm.errors.close_date} className="mt-1" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">
@@ -289,20 +306,23 @@ export default function DayClose({
                         </form>
                     )}
 
-                    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow">
+                    <div className="rounded-lg border border-slate-200 bg-white p-4 shadow sm:p-6">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                            {t('companyWorkspace.tellerStepEyebrow')} 3
+                        </p>
                         <h3 className="text-base font-semibold text-slate-900">
-                            2) Operations and reports
+                            {t('companyWorkspace.tellerStep3Title')}
                         </h3>
                         <p className="mt-1 text-sm text-slate-600">
-                            Operations unlock only after Start day. End-of-day reports are available after End day.
+                            {t('companyWorkspace.tellerStep3Body')}
                         </p>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <Link
                                 href={route('journals.create-cash-in', {
                                     ...query,
-                                    date: selected,
+                                    date: operationalDate,
                                 })}
-                                className={`rounded-md border px-3 py-2 text-sm ${
+                                className={`rounded-md border px-3 py-2.5 text-center text-sm touch-manipulation sm:text-left ${
                                     dayOpen
                                         ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
                                         : 'pointer-events-none border-slate-200 bg-slate-100 text-slate-400'
@@ -313,9 +333,9 @@ export default function DayClose({
                             <Link
                                 href={route('journals.create-cash-out', {
                                     ...query,
-                                    date: selected,
+                                    date: operationalDate,
                                 })}
-                                className={`rounded-md border px-3 py-2 text-sm ${
+                                className={`rounded-md border px-3 py-2.5 text-center text-sm touch-manipulation sm:text-left ${
                                     dayOpen
                                         ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
                                         : 'pointer-events-none border-slate-200 bg-slate-100 text-slate-400'
@@ -325,7 +345,7 @@ export default function DayClose({
                             </Link>
                             <Link
                                 href={reportLinks?.trial_balance ?? '#'}
-                                className={`rounded-md border px-3 py-2 text-sm ${
+                                className={`rounded-md border px-3 py-2.5 text-center text-sm touch-manipulation sm:text-left ${
                                     !dayOpen
                                         ? 'border-indigo-300 bg-indigo-50 text-indigo-900'
                                         : 'pointer-events-none border-slate-200 bg-slate-100 text-slate-400'
@@ -335,7 +355,7 @@ export default function DayClose({
                             </Link>
                             <Link
                                 href={reportLinks?.profit_loss ?? '#'}
-                                className={`rounded-md border px-3 py-2 text-sm ${
+                                className={`rounded-md border px-3 py-2.5 text-center text-sm touch-manipulation sm:text-left ${
                                     !dayOpen
                                         ? 'border-indigo-300 bg-indigo-50 text-indigo-900'
                                         : 'pointer-events-none border-slate-200 bg-slate-100 text-slate-400'
@@ -345,7 +365,7 @@ export default function DayClose({
                             </Link>
                             <Link
                                 href={reportLinks?.balance_sheet ?? '#'}
-                                className={`rounded-md border px-3 py-2 text-sm ${
+                                className={`rounded-md border px-3 py-2.5 text-center text-sm touch-manipulation sm:text-left ${
                                     !dayOpen
                                         ? 'border-indigo-300 bg-indigo-50 text-indigo-900'
                                         : 'pointer-events-none border-slate-200 bg-slate-100 text-slate-400'
@@ -355,7 +375,7 @@ export default function DayClose({
                             </Link>
                             <Link
                                 href={reportLinks?.cash_flow ?? '#'}
-                                className={`rounded-md border px-3 py-2 text-sm ${
+                                className={`rounded-md border px-3 py-2.5 text-center text-sm touch-manipulation sm:text-left ${
                                     !dayOpen
                                         ? 'border-indigo-300 bg-indigo-50 text-indigo-900'
                                         : 'pointer-events-none border-slate-200 bg-slate-100 text-slate-400'
@@ -372,7 +392,8 @@ export default function DayClose({
                                 Your recent closes
                             </h3>
                         </div>
-                        <table className="min-w-full divide-y divide-gray-200 text-sm">
+                        <div className="overflow-x-auto">
+                        <table className="min-w-[36rem] w-full divide-y divide-gray-200 text-sm sm:min-w-full">
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-3 py-2 text-left">Date</th>
@@ -421,6 +442,7 @@ export default function DayClose({
                                 )}
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 </div>
             </div>

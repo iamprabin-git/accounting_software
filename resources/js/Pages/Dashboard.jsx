@@ -1,3 +1,9 @@
+import {
+    DebitCreditBars,
+    HorizontalBarGroup,
+    RatioLineSpark,
+} from '@/Components/dashboard/SimpleBars';
+import PortalCompanyPaymentCard from '@/Components/Portal/PortalCompanyPaymentCard';
 import PortalHeaderBlock from '@/Components/Portal/PortalHeaderBlock';
 import PortalPageContainer from '@/Components/Portal/PortalPageContainer';
 import { Button } from '@/Components/ui/button';
@@ -95,6 +101,9 @@ function FinancialRatiosSection({ financialRatios }) {
                             asOf,
                         })}
                     </span>
+                    <span className="block text-xs text-muted-foreground">
+                        {t('dashboard.ratios.sparkHint')}
+                    </span>
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -107,15 +116,24 @@ function FinancialRatiosSection({ financialRatios }) {
                         {items.map((row) => (
                             <li
                                 key={row.key}
-                                className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-start sm:justify-between"
+                                className="flex flex-col gap-3 px-3 py-4 sm:flex-row sm:items-stretch sm:justify-between sm:gap-6"
                             >
-                                <div className="min-w-0 flex-1 space-y-1">
-                                    <p className="text-sm font-medium leading-tight">
-                                        {t(
-                                            `dashboard.ratios.metrics.${row.key}.name`,
-                                            { defaultValue: row.key },
-                                        )}
-                                    </p>
+                                <div className="min-w-0 flex-1 space-y-2">
+                                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                                        <p className="text-sm font-semibold leading-tight text-foreground">
+                                            {t(
+                                                `dashboard.ratios.metrics.${row.key}.name`,
+                                                { defaultValue: row.key },
+                                            )}
+                                        </p>
+                                        <p className="shrink-0 font-mono text-lg font-semibold tabular-nums text-foreground sm:text-right">
+                                            {formatRatioDisplay(
+                                                row.format,
+                                                row.value,
+                                            )}
+                                        </p>
+                                    </div>
+                                    <RatioLineSpark row={row} />
                                     <p className="text-xs text-muted-foreground">
                                         <span className="font-medium text-foreground/80">
                                             {t('dashboard.ratios.formula')}
@@ -147,14 +165,6 @@ function FinancialRatiosSection({ financialRatios }) {
                                             );
                                         })}
                                     </div>
-                                </div>
-                                <div className="shrink-0 text-right">
-                                    <p className="font-mono text-lg font-semibold tabular-nums">
-                                        {formatRatioDisplay(
-                                            row.format,
-                                            row.value,
-                                        )}
-                                    </p>
                                 </div>
                             </li>
                         ))}
@@ -202,7 +212,7 @@ function AuditIntegrityTrendSection({ auditIntegrityTrend }) {
                     </CardTitle>
                 </div>
                 <CardDescription>
-                    Nightly chain verification from the scheduler (dots above).
+                    Nightly chain verification from the scheduler (bars above).
                     Manual checks are logged on the audit trail and are not part of
                     this 7-night timeline.
                 </CardDescription>
@@ -215,26 +225,31 @@ function AuditIntegrityTrendSection({ auditIntegrityTrend }) {
                     </p>
                 ) : (
                     <div className="overflow-x-auto pb-1">
-                        <div className="flex min-w-max items-end gap-0 px-1">
+                        <div className="flex min-w-max items-end gap-2 px-1 pt-2">
                             {points.map((p, i) => (
                                 <div
                                     key={`${p.created_at ?? ''}-${p.action}-${i}`}
-                                    className="flex flex-1 flex-col items-center gap-2"
-                                    style={{ minWidth: '4.5rem' }}
+                                    className="flex flex-col items-center gap-2"
+                                    style={{ minWidth: '3.25rem' }}
                                 >
-                                    <span
-                                        className="h-3 w-3 shrink-0 rounded-full ring-2 ring-background"
+                                    <div
+                                        className="flex h-20 w-7 items-end justify-center rounded-md bg-muted/60 px-1 pb-1"
                                         title={
                                             p.pass
                                                 ? 'Pass'
                                                 : 'Fail'
                                         }
-                                        style={{
-                                            backgroundColor: p.pass
-                                                ? 'rgb(22 163 74)'
-                                                : 'rgb(220 38 38)',
-                                        }}
-                                    />
+                                    >
+                                        <div
+                                            className="w-full min-h-[18%] rounded-sm transition-all"
+                                            style={{
+                                                height: '85%',
+                                                backgroundColor: p.pass
+                                                    ? 'rgb(22 163 74)'
+                                                    : 'rgb(220 38 38)',
+                                            }}
+                                        />
+                                    </div>
                                     <span className="text-center text-[10px] leading-tight text-muted-foreground tabular-nums">
                                         {formatShortDate(p.created_at)}
                                     </span>
@@ -302,36 +317,65 @@ function ControlCenterSection({ controlCenter }) {
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-4">
-                    <div className="rounded-md border bg-background/70 p-3">
-                        <p className="text-xs text-muted-foreground">
-                            Total pending
+                <div className="grid gap-4 lg:grid-cols-5 lg:items-end">
+                    <div className="rounded-lg border bg-background/70 p-4 lg:col-span-2">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Pending queue mix
                         </p>
-                        <p className="text-xl font-semibold">
-                            {pending.total ?? 0}
-                        </p>
+                        <HorizontalBarGroup
+                            className="mt-3"
+                            items={[
+                                {
+                                    key: 'm',
+                                    label: 'Members',
+                                    value: pending.members ?? 0,
+                                },
+                                {
+                                    key: 'c',
+                                    label: 'Chart accounts',
+                                    value: pending.chart_accounts ?? 0,
+                                },
+                                {
+                                    key: 'j',
+                                    label: 'Journals',
+                                    value: pending.journals ?? 0,
+                                },
+                            ]}
+                        />
                     </div>
-                    <div className="rounded-md border bg-background/70 p-3">
-                        <p className="text-xs text-muted-foreground">Members</p>
-                        <p className="text-xl font-semibold">
-                            {pending.members ?? 0}
-                        </p>
-                    </div>
-                    <div className="rounded-md border bg-background/70 p-3">
-                        <p className="text-xs text-muted-foreground">
-                            Chart accounts
-                        </p>
-                        <p className="text-xl font-semibold">
-                            {pending.chart_accounts ?? 0}
-                        </p>
-                    </div>
-                    <div className="rounded-md border bg-background/70 p-3">
-                        <p className="text-xs text-muted-foreground">
-                            Journal approvals
-                        </p>
-                        <p className="text-xl font-semibold">
-                            {pending.journals ?? 0}
-                        </p>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:col-span-3 lg:grid-cols-2">
+                        <div className="rounded-lg border bg-background/70 p-3">
+                            <p className="text-xs text-muted-foreground">
+                                Total pending
+                            </p>
+                            <p className="text-2xl font-semibold tabular-nums tracking-tight">
+                                {pending.total ?? 0}
+                            </p>
+                        </div>
+                        <div className="rounded-lg border bg-background/70 p-3">
+                            <p className="text-xs text-muted-foreground">
+                                Members
+                            </p>
+                            <p className="text-2xl font-semibold tabular-nums tracking-tight">
+                                {pending.members ?? 0}
+                            </p>
+                        </div>
+                        <div className="rounded-lg border bg-background/70 p-3">
+                            <p className="text-xs text-muted-foreground">
+                                Chart accounts
+                            </p>
+                            <p className="text-2xl font-semibold tabular-nums tracking-tight">
+                                {pending.chart_accounts ?? 0}
+                            </p>
+                        </div>
+                        <div className="rounded-lg border bg-background/70 p-3">
+                            <p className="text-xs text-muted-foreground">
+                                Journals
+                            </p>
+                            <p className="text-2xl font-semibold tabular-nums tracking-tight">
+                                {pending.journals ?? 0}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -372,7 +416,7 @@ function ControlCenterSection({ controlCenter }) {
                     {page.props.auth.user?.role === 'company' ? (
                         <Button variant="outline" size="sm" asChild>
                             <Link href={route('company.team.index')}>
-                                Manual review login users
+                                Team &amp; portal users
                             </Link>
                         </Button>
                     ) : null}
@@ -390,6 +434,7 @@ function ControlCenterSection({ controlCenter }) {
 }
 
 function SystemHealthSection({ systemHealth }) {
+    const { t } = useTranslation();
     if (!systemHealth) {
         return null;
     }
@@ -428,6 +473,10 @@ function SystemHealthSection({ systemHealth }) {
                                       Math.abs(tb.delta_cents || 0),
                                   )}`}
                         </p>
+                        <DebitCreditBars
+                            debitCents={tb.debit_cents}
+                            creditCents={tb.credit_cents}
+                        />
                     </div>
                     <div className="rounded-md border bg-background/70 p-3">
                         <p className="text-sm font-medium">Accounting period lock</p>
@@ -457,8 +506,8 @@ function SystemHealthSection({ systemHealth }) {
                         </Link>
                     </Button>
                     <Button variant="outline" size="sm" asChild>
-                        <Link href={route('company.profile.edit', q)}>
-                            Period settings
+                        <Link href={route('company.configuration.edit', q)}>
+                            {t('nav.companyConfiguration')}
                         </Link>
                     </Button>
                 </div>
@@ -544,6 +593,7 @@ export default function Dashboard({
     readOnly,
     endUserPortal,
     financialRatios,
+    payment_info: paymentInfo,
     approvalSla,
     auditIntegrityAlert,
     auditIntegrityTrend,
@@ -609,6 +659,8 @@ export default function Dashboard({
                             {hint}
                         </div>
                     ) : null}
+
+                    <PortalCompanyPaymentCard payment_info={paymentInfo} />
 
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Card className="cbs-surface border-slate-200/90 dark:border-slate-800">
@@ -707,8 +759,8 @@ export default function Dashboard({
         >
             <Head title={t('nav.dashboard')} />
 
-            <div className="py-10">
-                <div className="mx-auto max-w-7xl space-y-8 sm:px-6 lg:px-8">
+            <div className="px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+                <div className="mx-auto min-w-0 max-w-7xl space-y-8">
                     {auditIntegrityAlert ? (
                         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-100">
                             <p className="font-semibold">
@@ -782,33 +834,61 @@ export default function Dashboard({
                     ) : null}
 
                     <div className="grid gap-4 md:grid-cols-2">
-                        <Card className="cbs-surface">
+                        <Card className="cbs-surface overflow-hidden">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">
                                     {t('dashboard.chartAccounts')}
                                 </CardTitle>
                                 <Landmark className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">
+                            <CardContent className="space-y-3">
+                                <div className="text-3xl font-bold tabular-nums tracking-tight">
                                     {stats.accounts}
                                 </div>
+                                <HorizontalBarGroup
+                                    items={[
+                                        {
+                                            key: 'ca',
+                                            label: t('dashboard.chartAccounts'),
+                                            value: stats.accounts,
+                                        },
+                                        {
+                                            key: 'je',
+                                            label: t('dashboard.journalEntries'),
+                                            value: stats.journal_entries,
+                                        },
+                                    ]}
+                                />
                                 <CardDescription>
                                     {t('dashboard.chartAccountsDesc')}
                                 </CardDescription>
                             </CardContent>
                         </Card>
-                        <Card className="cbs-surface">
+                        <Card className="cbs-surface overflow-hidden">
                             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                 <CardTitle className="text-sm font-medium">
                                     {t('dashboard.journalEntries')}
                                 </CardTitle>
                                 <BookOpen className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">
+                            <CardContent className="space-y-3">
+                                <div className="text-3xl font-bold tabular-nums tracking-tight">
                                     {stats.journal_entries}
                                 </div>
+                                <HorizontalBarGroup
+                                    items={[
+                                        {
+                                            key: 'je',
+                                            label: t('dashboard.journalEntries'),
+                                            value: stats.journal_entries,
+                                        },
+                                        {
+                                            key: 'ca',
+                                            label: t('dashboard.chartAccounts'),
+                                            value: stats.accounts,
+                                        },
+                                    ]}
+                                />
                                 <CardDescription>
                                     {t('dashboard.journalEntriesDesc')}
                                 </CardDescription>
@@ -830,30 +910,72 @@ export default function Dashboard({
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                    <div className="rounded-md border p-3">
-                                        <p className="text-xs text-muted-foreground">
-                                            Pending total
+                                <div className="grid gap-4 lg:grid-cols-3">
+                                    <div className="rounded-lg border p-4 lg:col-span-1">
+                                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                            Aging buckets
                                         </p>
-                                        <p className="text-xl font-semibold">
-                                            {approvalSla.pending_total}
-                                        </p>
+                                        <HorizontalBarGroup
+                                            className="mt-3"
+                                            items={[
+                                                {
+                                                    key: 'all',
+                                                    label: 'All pending',
+                                                    value: approvalSla.pending_total,
+                                                    tone:
+                                                        approvalSla.pending_total >
+                                                        0
+                                                            ? 'warning'
+                                                            : undefined,
+                                                },
+                                                {
+                                                    key: 'd2',
+                                                    label: 'Over 2 days',
+                                                    value: approvalSla.over_2_days,
+                                                    tone:
+                                                        approvalSla.over_2_days >
+                                                        0
+                                                            ? 'warning'
+                                                            : undefined,
+                                                },
+                                                {
+                                                    key: 'd7',
+                                                    label: 'Over 7 days',
+                                                    value: approvalSla.over_7_days,
+                                                    tone:
+                                                        approvalSla.over_7_days >
+                                                        0
+                                                            ? 'danger'
+                                                            : undefined,
+                                                },
+                                            ]}
+                                        />
                                     </div>
-                                    <div className="rounded-md border p-3">
-                                        <p className="text-xs text-muted-foreground">
-                                            Over 2 days
-                                        </p>
-                                        <p className="text-xl font-semibold">
-                                            {approvalSla.over_2_days}
-                                        </p>
-                                    </div>
-                                    <div className="rounded-md border p-3">
-                                        <p className="text-xs text-muted-foreground">
-                                            Over 7 days
-                                        </p>
-                                        <p className="text-xl font-semibold">
-                                            {approvalSla.over_7_days}
-                                        </p>
+                                    <div className="grid grid-cols-3 gap-3 lg:col-span-2">
+                                        <div className="rounded-lg border p-3 text-center sm:text-left">
+                                            <p className="text-xs text-muted-foreground">
+                                                Pending total
+                                            </p>
+                                            <p className="text-2xl font-semibold tabular-nums">
+                                                {approvalSla.pending_total}
+                                            </p>
+                                        </div>
+                                        <div className="rounded-lg border p-3 text-center sm:text-left">
+                                            <p className="text-xs text-muted-foreground">
+                                                Over 2 days
+                                            </p>
+                                            <p className="text-2xl font-semibold tabular-nums">
+                                                {approvalSla.over_2_days}
+                                            </p>
+                                        </div>
+                                        <div className="rounded-lg border p-3 text-center sm:text-left">
+                                            <p className="text-xs text-muted-foreground">
+                                                Over 7 days
+                                            </p>
+                                            <p className="text-2xl font-semibold tabular-nums">
+                                                {approvalSla.over_7_days}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                                 {approvalSla.oldest_pending ? (

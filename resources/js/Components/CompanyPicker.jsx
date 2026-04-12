@@ -12,10 +12,12 @@ export default function CompanyPicker({
     }
 
     return (
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-            <span className="whitespace-nowrap font-medium">Company</span>
+        <label className="flex w-full min-w-0 flex-col gap-2 text-sm text-gray-700 sm:w-auto sm:flex-row sm:items-center">
+            <span className="shrink-0 font-medium sm:whitespace-nowrap">
+                Company
+            </span>
             <select
-                className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className="w-full min-w-0 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:max-w-xs"
                 value={String(currentCompanyId)}
                 onChange={(e) =>
                     router.get(

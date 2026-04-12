@@ -1,3 +1,4 @@
+import PortalCompanyPaymentCard from '@/Components/Portal/PortalCompanyPaymentCard';
 import PortalHeaderBlock from '@/Components/Portal/PortalHeaderBlock';
 import PortalPageContainer from '@/Components/Portal/PortalPageContainer';
 import { Button } from '@/Components/ui/button';
@@ -13,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { formatDisplayDateTime } from '@/utils/dateDisplay';
 import { Head, useForm } from '@inertiajs/react';
 
-export default function Messages({ messages, company_name }) {
+export default function Messages({ messages, company_name, payment_info }) {
     const form = useForm({ body: '' });
 
     const submit = (e) => {
@@ -35,7 +36,9 @@ export default function Messages({ messages, company_name }) {
         >
             <Head title="Messages" />
 
-            <PortalPageContainer>
+            <PortalPageContainer className="space-y-6">
+                <PortalCompanyPaymentCard payment_info={payment_info} />
+
                 <Card className="border-slate-200/90 shadow-sm dark:border-slate-800">
                     <CardHeader className="border-b border-slate-100 dark:border-slate-800">
                         <CardTitle className="text-base">Conversation</CardTitle>

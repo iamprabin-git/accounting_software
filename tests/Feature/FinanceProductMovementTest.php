@@ -72,7 +72,7 @@ class FinanceProductMovementTest extends TestCase
                 [
                     'amount' => '50.00',
                     'memo' => 'Top-up',
-                    'transaction_date' => now()->toDateString(),
+                    'transaction_date' => '2026-04-14',
                     'debit_chart_account_id' => $cash->id,
                     'credit_chart_account_id' => '',
                     'reference' => 'T1',
@@ -160,7 +160,7 @@ class FinanceProductMovementTest extends TestCase
                 [
                     'amount' => '50.00',
                     'memo' => 'Disburse',
-                    'transaction_date' => now()->toDateString(),
+                    'transaction_date' => '2026-04-14',
                     'credit_chart_account_id' => $cash->id,
                     'debit_chart_account_id' => '',
                     'reference' => 'LD1',

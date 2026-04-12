@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
@@ -51,9 +52,11 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'phone',
         'password',
         'google_id',
         'avatar_url',
+        'profile_photo_path',
         'is_active',
         'portal_approved_at',
         'portal_approved_by_user_id',
@@ -81,6 +84,23 @@ class User extends Authenticatable
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    public function profilePhotoPublicUrl(): ?string
+    {
+        if ($this->profile_photo_path === null || $this->profile_photo_path === '') {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->profile_photo_path);
+    }
+
+    /**
+     * Uploaded profile photo takes precedence over OAuth avatar.
+     */
+    public function avatarDisplayUrl(): ?string
+    {
+        return $this->profilePhotoPublicUrl() ?? $this->avatar_url;
     }
 
     public function portalApprovedBy(): BelongsTo
@@ -189,6 +209,14 @@ class User extends Authenticatable
     public function canManageTeam(): bool
     {
         return $this->isCompany();
+    }
+
+    /**
+     * Company profile, CBS configuration, and related POST routes (not integrations tokens).
+     */
+    public function canManageCompanyWebSettings(): bool
+    {
+        return $this->isCompany() || $this->isAdmin();
     }
 
     public function canEditAccounting(): bool

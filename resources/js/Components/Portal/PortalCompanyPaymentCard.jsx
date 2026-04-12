@@ -31,8 +31,10 @@ export default function PortalCompanyPaymentCard({ payment_info, className }) {
                     Payment instructions
                 </CardTitle>
                 <CardDescription className="text-slate-600 dark:text-slate-400">
-                    Official bank details and QR from your institution. Use for
-                    loan repayments and savings deposits.
+                    Official bank details and QR from your institution—use for
+                    loan repayments and savings deposits. Your cooperative shows
+                    this where your administrator enables it (dashboard,
+                    accounts, passbook, messages, and account statement).
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-6">

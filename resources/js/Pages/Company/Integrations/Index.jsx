@@ -1,3 +1,4 @@
+import CompanyWorkspaceSidebar from '@/Components/CompanyWorkspaceSidebar';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -79,29 +80,36 @@ export default function Index({
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <h2 className="min-w-0 text-xl font-semibold leading-tight text-gray-800">
                         Integrations &amp; API
                     </h2>
-                    <Link
-                        href={
-                            integrationContext?.is_platform_admin
-                                ? route('dashboard')
-                                : route('company.profile.edit')
-                        }
-                        className="text-sm text-gray-600 underline hover:text-gray-900"
-                    >
-                        {integrationContext?.is_platform_admin
-                            ? 'Back to dashboard'
-                            : 'Back to company profile'}
-                    </Link>
+                    {integrationContext?.is_platform_admin ? (
+                        <Link
+                            href={route('dashboard')}
+                            className="text-sm text-gray-600 underline hover:text-gray-900"
+                        >
+                            Back to dashboard
+                        </Link>
+                    ) : (
+                        <Link
+                            href={route('profile.edit')}
+                            className="text-sm text-gray-600 underline hover:text-gray-900"
+                        >
+                            Your account
+                        </Link>
+                    )}
                 </div>
             }
         >
             <Head title="Integrations" />
 
-            <div className="py-10">
-                <div className="mx-auto max-w-3xl space-y-8 sm:px-6 lg:px-8">
+            <div className="py-8 sm:py-10">
+                <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 sm:gap-8 sm:px-6 lg:flex-row lg:gap-10 lg:px-8">
+                    {integrationContext?.is_platform_admin ? null : (
+                        <CompanyWorkspaceSidebar />
+                    )}
+                    <div className="min-w-0 flex-1 space-y-8">
                     {status ? (
                         <p className="text-sm text-green-700">{status}</p>
                     ) : null}
@@ -436,6 +444,7 @@ export default function Index({
                             )}
                         </ul>
                     </section>
+                    </div>
                 </div>
             </div>
         </AuthenticatedLayout>

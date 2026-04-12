@@ -12,7 +12,8 @@ import {
 } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link } from '@inertiajs/react';
-import { Clock3, Mail, MapPin, Phone } from 'lucide-react';
+import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import { useMemo } from 'react';
 
 function stateMessage(portalState) {
     switch (portalState) {
@@ -29,32 +30,48 @@ function stateMessage(portalState) {
     }
 }
 
-const contactChannels = [
-    {
-        title: 'Member support email',
-        detail: 'support@ledgerapp.com',
-        helper: 'General account and portal support.',
-        icon: Mail,
-    },
-    {
-        title: 'Support hotline',
-        detail: '+1 (555) 012-3400',
-        helper: 'Business hours response for urgent questions.',
-        icon: Phone,
-    },
-    {
-        title: 'Head office',
-        detail: '48 Market Street, Suite 210',
-        helper: 'Monrovia, Liberia',
-        icon: MapPin,
-    },
-    {
-        title: 'Working hours',
-        detail: 'Mon - Fri, 8:30 AM - 6:00 PM',
-        helper: 'West Africa Time (GMT)',
-        icon: Clock3,
-    },
-];
+function companyContactRows(company) {
+    const rows = [];
+    if (company?.contact_email) {
+        rows.push({
+            key: 'email',
+            title: 'Institution email',
+            detail: company.contact_email,
+            helper: 'For account, balances, and portal access.',
+            icon: Mail,
+            mailto: company.contact_email,
+        });
+    }
+    if (company?.phone) {
+        const tel = String(company.phone).replace(/[^\d+]/g, '');
+        rows.push({
+            key: 'phone',
+            title: 'Phone',
+            detail: company.phone,
+            helper: 'Office or member services line.',
+            icon: Phone,
+            tel: tel || null,
+        });
+    }
+    if (company?.address) {
+        rows.push({
+            key: 'address',
+            title: 'Location',
+            detail: company.address,
+            helper: 'Registered or branch address on file.',
+            icon: MapPin,
+        });
+    }
+    rows.push({
+        key: 'messages',
+        title: 'In-app messages',
+        detail: 'Send a note to your institution',
+        helper: 'Staff can reply in the Messages tab.',
+        icon: MessageCircle,
+        href: route('portal.messages'),
+    });
+    return rows;
+}
 
 export default function Home({
     payment_info,
@@ -65,6 +82,10 @@ export default function Home({
     savings,
 }) {
     const blocked = portal_state !== 'ok';
+    const contactRows = useMemo(() => companyContactRows(company), [company]);
+    const primaryMailto = company?.contact_email
+        ? `mailto:${company.contact_email}`
+        : null;
 
     return (
         <AuthenticatedLayout
@@ -242,38 +263,92 @@ export default function Home({
                                 Contact Us
                             </h3>
                             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                Need help with your account, balances, or portal
-                                access? Reach our team directly.
+                                Contact details for{' '}
+                                <span className="font-medium text-slate-800 dark:text-slate-100">
+                                    {company?.name ?? 'your institution'}
+                                </span>
+                                . Your organization manages this information in
+                                Company profile.
                             </p>
                         </div>
-                        <Button variant="outline" size="sm" asChild>
-                            <a href="mailto:support@ledgerapp.com">Email support</a>
-                        </Button>
+                        {primaryMailto ? (
+                            <Button variant="outline" size="sm" asChild>
+                                <a href={primaryMailto}>Email institution</a>
+                            </Button>
+                        ) : (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={route('portal.messages')}>
+                                    Message staff
+                                </Link>
+                            </Button>
+                        )}
                     </div>
 
+                    {!company?.contact_email &&
+                    !company?.phone &&
+                    !company?.address ? (
+                        <p
+                            role="status"
+                            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
+                        >
+                            Your institution has not published an email, phone,
+                            or address yet. Use Messages to reach them, or ask
+                            them to update Company profile.
+                        </p>
+                    ) : null}
+
                     <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                        {contactChannels.map((channel) => {
+                        {contactRows.map((channel) => {
                             const Icon = channel.icon;
+                            const inner = (
+                                <>
+                                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                                        <Icon className="h-4 w-4" />
+                                    </span>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                            {channel.title}
+                                        </p>
+                                        <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
+                                            {channel.detail}
+                                        </p>
+                                        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                            {channel.helper}
+                                        </p>
+                                        {channel.mailto ? (
+                                            <a
+                                                href={`mailto:${channel.mailto}`}
+                                                className="mt-2 inline-block text-xs font-medium text-emerald-700 underline-offset-2 hover:underline dark:text-emerald-400"
+                                            >
+                                                Send email
+                                            </a>
+                                        ) : null}
+                                        {channel.tel ? (
+                                            <a
+                                                href={`tel:${channel.tel}`}
+                                                className="mt-2 inline-block text-xs font-medium text-emerald-700 underline-offset-2 hover:underline dark:text-emerald-400"
+                                            >
+                                                Call
+                                            </a>
+                                        ) : null}
+                                        {channel.href ? (
+                                            <Link
+                                                href={channel.href}
+                                                className="mt-2 inline-block text-xs font-medium text-emerald-700 underline-offset-2 hover:underline dark:text-emerald-400"
+                                            >
+                                                Open messages
+                                            </Link>
+                                        ) : null}
+                                    </div>
+                                </>
+                            );
                             return (
                                 <div
-                                    key={channel.title}
+                                    key={channel.key}
                                     className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/50"
                                 >
                                     <div className="flex items-start gap-3">
-                                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                                            <Icon className="h-4 w-4" />
-                                        </span>
-                                        <div>
-                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                {channel.title}
-                                            </p>
-                                            <p className="text-sm text-slate-700 dark:text-slate-200">
-                                                {channel.detail}
-                                            </p>
-                                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                {channel.helper}
-                                            </p>
-                                        </div>
+                                        {inner}
                                     </div>
                                 </div>
                             );

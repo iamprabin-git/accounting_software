@@ -34,6 +34,12 @@ class DashboardController extends Controller
                 );
             }
 
+            $paymentInfo = ['visible' => false, 'bank_payment_details' => null, 'payment_qr_url' => null];
+            $company = $this->optionalAccountingCompany($request);
+            if ($company !== null) {
+                $paymentInfo = $this->companyPaymentDetailsForPortal($company);
+            }
+
             return Inertia::render('Dashboard', [
                 'stats' => ['accounts' => 0, 'journal_entries' => 0],
                 'readOnly' => true,
@@ -43,6 +49,7 @@ class DashboardController extends Controller
                     'can_view_finance' => $user->canViewMemberFinancePortal(),
                 ],
                 'financialRatios' => $financialRatios,
+                'payment_info' => $paymentInfo,
             ]);
         }
 

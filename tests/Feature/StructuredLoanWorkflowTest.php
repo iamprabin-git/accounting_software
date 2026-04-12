@@ -117,7 +117,7 @@ class StructuredLoanWorkflowTest extends TestCase
             [
                 'amount' => '1000.00',
                 'memo' => 'First draw',
-                'transaction_date' => '2026-04-04',
+                'transaction_date' => '2026-04-06',
                 'debit_chart_account_id' => $receivable->id,
                 'credit_chart_account_id' => $cash->id,
                 'reference' => 'DISB-1',

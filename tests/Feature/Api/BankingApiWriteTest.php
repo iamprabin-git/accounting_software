@@ -78,7 +78,7 @@ class BankingApiWriteTest extends TestCase
         Sanctum::actingAs($owner, ['banking:journal']);
 
         $this->postJson('/api/v1/banking/transfers', [
-            'transaction_date' => '2026-05-02',
+            'transaction_date' => '2026-05-04',
             'memo' => 'Move to bank',
             'amount' => '5.00',
             'from_chart_account_id' => $cash->id,
@@ -151,7 +151,7 @@ class BankingApiWriteTest extends TestCase
         Sanctum::actingAs($owner, ['banking:journal']);
 
         $this->postJson('/api/v1/banking/journals/two-line', [
-            'transaction_date' => '2026-05-03',
+            'transaction_date' => '2026-05-05',
             'memo' => 'Webhook trigger',
             'amount' => '1.00',
             'debit_chart_account_id' => $bank->id,

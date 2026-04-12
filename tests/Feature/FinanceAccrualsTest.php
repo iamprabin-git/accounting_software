@@ -212,6 +212,102 @@ class FinanceAccrualsTest extends TestCase
         $this->assertSame(FinancialPosition::CATEGORY_SAVINGS, $entry->finance_category);
     }
 
+    public function test_savings_quarter_post_with_withholding_tax_creates_three_lines(): void
+    {
+        $company = Company::factory()->create();
+        $owner = User::factory()->companyOwner($company)->create();
+        [, , $asset, $revenue] = $this->approvedAccounts($company, $owner);
+
+        $taxPayable = ChartAccount::query()->create([
+            'company_id' => $company->id,
+            'user_id' => $owner->id,
+            'code' => '2300',
+            'name' => 'Tax withheld payable',
+            'type' => ChartAccount::TYPE_LIABILITY,
+            'approval_status' => ChartAccount::STATUS_APPROVED,
+            'approved_at' => now(),
+        ]);
+
+        $company->forceFill([
+            'cbs_configuration' => [
+                'enforce_holiday_blackout' => false,
+                'internal_notes' => '',
+                'deposit_interest_withholding_tax_percent' => 10,
+                'deposit_interest_tax_payable_chart_account_id' => $taxPayable->id,
+            ],
+        ])->save();
+
+        $member = $this->approvedMember($company, $owner);
+
+        $this->actingAs($owner)->post(route('finance.positions.store', ['category' => 'savings'], absolute: false), [
+            'title' => 'Savings',
+            'principal' => '9000',
+            'annual_interest_rate_percent' => '4',
+            'start_date' => null,
+            'notes' => null,
+            'member_id' => $member->id,
+        ])->assertSessionHasNoErrors();
+
+        $position = FinancialPosition::query()->first();
+        $this->assertNotNull($position);
+
+        $year = 2026;
+        $this->actingAs($owner)
+            ->post(
+                route('finance.positions.accruals.sync-year', [
+                    'category' => 'savings',
+                    'position' => $position->id,
+                ], absolute: false),
+                ['year' => $year],
+            )
+            ->assertSessionHasNoErrors();
+
+        $q1 = FinancialPositionAccrual::query()
+            ->where('financial_position_id', $position->id)
+            ->where('accrual_year', $year)
+            ->whereIn('accrual_month', [1, 2, 3])
+            ->where('kind', FinancialPositionAccrual::KIND_SAVINGS_MONTHLY)
+            ->get();
+
+        $this->assertCount(3, $q1);
+        $gross = (int) $q1->sum('amount_cents');
+        $this->assertGreaterThan(0, $gross);
+        $expectedTax = (int) round($gross * 10 / 100);
+        $expectedNet = $gross - $expectedTax;
+
+        $this->actingAs($owner)
+            ->post(
+                route('finance.positions.accruals.post-savings-quarter', [
+                    'category' => 'savings',
+                    'position' => $position->id,
+                ], absolute: false),
+                [
+                    'year' => $year,
+                    'quarter' => 1,
+                    'transaction_date' => "{$year}-03-31",
+                    'debit_chart_account_id' => $asset->id,
+                    'credit_chart_account_id' => $revenue->id,
+                    'reference' => 'Q1-INT-TAX',
+                ],
+            )
+            ->assertSessionHasNoErrors();
+
+        $q1->each->refresh();
+        $jid = $q1->first()->journal_entry_id;
+        $this->assertNotNull($jid);
+        $entry = JournalEntry::query()->with('lines')->find($jid);
+        $this->assertNotNull($entry);
+        $this->assertCount(3, $entry->lines);
+
+        $byAccount = $entry->lines->keyBy('chart_account_id');
+        $this->assertSame($gross, (int) $byAccount[$asset->id]->debit_cents);
+        $this->assertSame(0, (int) $byAccount[$asset->id]->credit_cents);
+        $this->assertSame(0, (int) $byAccount[$revenue->id]->debit_cents);
+        $this->assertSame($expectedNet, (int) $byAccount[$revenue->id]->credit_cents);
+        $this->assertSame(0, (int) $byAccount[$taxPayable->id]->debit_cents);
+        $this->assertSame($expectedTax, (int) $byAccount[$taxPayable->id]->credit_cents);
+    }
+
     public function test_investment_manual_accrual_without_annual_rate_on_store(): void
     {
         $company = Company::factory()->create();

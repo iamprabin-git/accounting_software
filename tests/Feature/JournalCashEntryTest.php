@@ -74,10 +74,10 @@ class JournalCashEntryTest extends TestCase
         $company = Company::factory()->create();
         $owner = User::factory()->companyOwner($company)->create();
         [$cash, $sales] = $this->accounts($company, $owner);
-        $this->openTellerDay($company, $owner, '2026-04-04');
+        $this->openTellerDay($company, $owner, '2026-04-06');
 
         $this->actingAs($owner)->post(route('journals.store-cash-in', absolute: false), [
-            'transaction_date' => '2026-04-04',
+            'transaction_date' => '2026-04-06',
             'cash_chart_account_id' => $cash->id,
             'lines' => [
                 ['chart_account_id' => $sales->id, 'amount' => '100.00', 'description' => 'Counter sale'],
@@ -96,10 +96,10 @@ class JournalCashEntryTest extends TestCase
         $company = Company::factory()->create();
         $owner = User::factory()->companyOwner($company)->create();
         [$cash, , $expense] = $this->accounts($company, $owner);
-        $this->openTellerDay($company, $owner, '2026-04-04');
+        $this->openTellerDay($company, $owner, '2026-04-06');
 
         $this->actingAs($owner)->post(route('journals.store-cash-out', absolute: false), [
-            'transaction_date' => '2026-04-04',
+            'transaction_date' => '2026-04-06',
             'cash_chart_account_id' => $cash->id,
             'lines' => [
                 ['chart_account_id' => $expense->id, 'amount' => '25.50'],
@@ -117,10 +117,10 @@ class JournalCashEntryTest extends TestCase
         $company = Company::factory()->create();
         $owner = User::factory()->companyOwner($company)->create();
         [$cash] = $this->accounts($company, $owner);
-        $this->openTellerDay($company, $owner, '2026-04-04');
+        $this->openTellerDay($company, $owner, '2026-04-06');
 
         $this->actingAs($owner)->post(route('journals.store-cash-in', absolute: false), [
-            'transaction_date' => '2026-04-04',
+            'transaction_date' => '2026-04-06',
             'cash_chart_account_id' => $cash->id,
             'lines' => [
                 ['chart_account_id' => $cash->id, 'amount' => '10.00'],

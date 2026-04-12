@@ -13,12 +13,12 @@ export default function Index({ threads }) {
         >
             <Head title="Customer messages" />
 
-            <div className="py-10">
-                <div className="mx-auto max-w-4xl sm:px-6 lg:px-8">
+            <div className="px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+                <div className="mx-auto min-w-0 max-w-4xl">
                     <div className="overflow-hidden bg-white shadow sm:rounded-lg">
                         <ul className="divide-y divide-gray-200">
                             {threads.length === 0 ? (
-                                <li className="px-6 py-10 text-center text-sm text-gray-500">
+                                <li className="px-4 py-10 text-center text-sm text-gray-500 sm:px-6">
                                     No conversations yet. When an end user sends
                                     a message from their portal, the thread
                                     appears here.
@@ -31,7 +31,7 @@ export default function Index({ threads }) {
                                                 'company.customer-chat.show',
                                                 t.end_user_id,
                                             )}
-                                            className="block px-6 py-4 hover:bg-gray-50"
+                                            className="block touch-manipulation px-4 py-4 hover:bg-gray-50 sm:px-6"
                                         >
                                             <p className="font-medium text-gray-900">
                                                 {t.name}

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Accounting;
 
+use App\Http\Controllers\Concerns\AssertsNoCompanyHoliday;
 use App\Http\Controllers\Concerns\ResolvesAccountingCompany;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
@@ -15,6 +16,7 @@ use Illuminate\Validation\ValidationException;
 
 class JournalApprovalController extends Controller
 {
+    use AssertsNoCompanyHoliday;
     use ResolvesAccountingCompany;
 
     private function validateAdminCompanySelection(Request $request): void
@@ -62,6 +64,12 @@ class JournalApprovalController extends Controller
                 'approve' => __('This period is locked. Approve using an open transaction date.'),
             ]);
         }
+
+        $this->assertNoCompanyHoliday(
+            $company->id,
+            $journalEntry->transaction_date->toDateString(),
+            'approve',
+        );
 
         $approvedNow = false;
         $needsSecondApproval = false;

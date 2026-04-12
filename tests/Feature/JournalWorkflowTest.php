@@ -41,7 +41,7 @@ class JournalWorkflowTest extends TestCase
         ]);
 
         $this->actingAs($staff)->post('/journals', [
-            'transaction_date' => now()->toDateString(),
+            'transaction_date' => '2026-04-14',
             'lines' => [
                 [
                     'chart_account_id' => $cash->id,
@@ -129,7 +129,7 @@ class JournalWorkflowTest extends TestCase
         ]);
 
         $this->actingAs($owner)->post('/journals', [
-            'transaction_date' => now()->toDateString(),
+            'transaction_date' => '2026-04-14',
             'lines' => [
                 ['chart_account_id' => $cash->id, 'debit' => 10, 'credit' => 0],
                 ['chart_account_id' => $equity->id, 'debit' => 0, 'credit' => 10],
@@ -169,7 +169,7 @@ class JournalWorkflowTest extends TestCase
         $entry = JournalEntry::query()->create([
             'company_id' => $company->id,
             'user_id' => $owner->id,
-            'transaction_date' => now()->toDateString(),
+            'transaction_date' => '2026-04-14',
             'status' => JournalEntry::STATUS_DRAFT,
         ]);
 
@@ -224,7 +224,7 @@ class JournalWorkflowTest extends TestCase
             $entry = JournalEntry::query()->create([
                 'company_id' => $company->id,
                 'user_id' => $owner->id,
-                'transaction_date' => now()->toDateString(),
+                'transaction_date' => '2026-04-14',
                 'status' => JournalEntry::STATUS_DRAFT,
             ]);
 
@@ -260,7 +260,7 @@ class JournalWorkflowTest extends TestCase
     public function test_locked_period_blocks_journal_approval(): void
     {
         $company = Company::factory()->create([
-            'journal_lock_date' => now()->toDateString(),
+            'journal_lock_date' => '2026-04-14',
         ]);
         $owner = User::factory()->companyOwner($company)->create();
 
@@ -287,7 +287,7 @@ class JournalWorkflowTest extends TestCase
         $entry = JournalEntry::query()->create([
             'company_id' => $company->id,
             'user_id' => $owner->id,
-            'transaction_date' => now()->toDateString(),
+            'transaction_date' => '2026-04-14',
             'status' => JournalEntry::STATUS_PENDING,
             'submitted_at' => now(),
         ]);
@@ -341,7 +341,7 @@ class JournalWorkflowTest extends TestCase
         $entry = JournalEntry::query()->create([
             'company_id' => $company->id,
             'user_id' => $owner->id,
-            'transaction_date' => now()->toDateString(),
+            'transaction_date' => '2026-04-14',
             'status' => JournalEntry::STATUS_APPROVED,
             'approved_by_user_id' => $owner->id,
             'approved_at' => now(),
@@ -419,7 +419,7 @@ class JournalWorkflowTest extends TestCase
         $entry = JournalEntry::query()->create([
             'company_id' => $company->id,
             'user_id' => $ownerA->id,
-            'transaction_date' => now()->toDateString(),
+            'transaction_date' => '2026-04-14',
             'status' => JournalEntry::STATUS_PENDING,
             'submitted_at' => now(),
         ]);
@@ -483,7 +483,7 @@ class JournalWorkflowTest extends TestCase
         $entry = JournalEntry::query()->create([
             'company_id' => $company->id,
             'user_id' => $owner->id,
-            'transaction_date' => now()->toDateString(),
+            'transaction_date' => '2026-04-14',
             'status' => JournalEntry::STATUS_PENDING,
             'submitted_at' => now(),
         ]);

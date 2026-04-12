@@ -574,6 +574,8 @@ class FinancialPositionController extends Controller
         ])->values()->all();
 
         $savingsQuarters = [];
+        $depositInterestTax = null;
+        $liabilityAccountOptions = [];
         if ($category === FinancialPosition::CATEGORY_SAVINGS) {
             $financeAccrualService = app(FinanceAccrualService::class);
             for ($q = 1; $q <= 4; $q++) {
@@ -585,6 +587,13 @@ class FinancialPositionController extends Controller
                     'ready' => $rows->count() === 3,
                 ];
             }
+            $cbs = $company->normalizedCbsConfiguration();
+            $pct = (float) $cbs['deposit_interest_withholding_tax_percent'];
+            $depositInterestTax = [
+                'withholding_tax_percent' => $pct,
+                'tax_payable_chart_account_id' => $cbs['deposit_interest_tax_payable_chart_account_id'],
+            ];
+            $liabilityAccountOptions = $this->liabilityChartAccountOptions($company->id);
         }
 
         return Inertia::render('Accounting/Finance/Show', [
@@ -630,6 +639,8 @@ class FinancialPositionController extends Controller
             'year' => $year,
             'accruals' => $accrualRows,
             'savings_quarters' => $savingsQuarters,
+            'deposit_interest_tax' => $depositInterestTax,
+            'liability_account_options' => $liabilityAccountOptions,
             'accounts' => $this->chartAccountOptions($company->id),
             'companies' => $this->accountingCompanyOptionsForAdmin($request),
             'currentCompanyId' => $company->id,
@@ -893,6 +904,15 @@ class FinancialPositionController extends Controller
                         ->where('approval_status', ChartAccount::STATUS_APPROVED)
                 ),
             ],
+            'tax_payable_chart_account_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('chart_accounts', 'id')->where(
+                    fn ($q) => $q->where('company_id', $company->id)
+                        ->where('approval_status', ChartAccount::STATUS_APPROVED)
+                        ->where('type', ChartAccount::TYPE_LIABILITY)
+                ),
+            ],
             'reference' => ['nullable', 'string', 'max:64'],
         ]);
 
@@ -925,6 +945,29 @@ class FinancialPositionController extends Controller
             'year' => (int) $validated['year'],
         ]).$this->financeMemberMemoSuffix($record);
 
+        $cbs = $company->normalizedCbsConfiguration();
+        $taxPercent = (float) $cbs['deposit_interest_withholding_tax_percent'];
+        $taxCents = $taxPercent > 0
+            ? (int) round($total * $taxPercent / 100.0)
+            : 0;
+        $useWithholding = $taxPercent > 0 && $taxCents > 0;
+
+        $taxAccountId = 0;
+        if (! empty($validated['tax_payable_chart_account_id'])) {
+            $taxAccountId = (int) $validated['tax_payable_chart_account_id'];
+        } else {
+            $defaultTax = $cbs['deposit_interest_tax_payable_chart_account_id'] ?? null;
+            if ($defaultTax !== null && $defaultTax !== '') {
+                $taxAccountId = (int) $defaultTax;
+            }
+        }
+
+        if ($useWithholding && $taxAccountId <= 0) {
+            return back()->withErrors([
+                'tax_payable_chart_account_id' => __('Select a tax payable liability account, or set a default under Company → Configuration.'),
+            ]);
+        }
+
         try {
             DB::transaction(function () use (
                 $journalService,
@@ -935,19 +978,57 @@ class FinancialPositionController extends Controller
                 $memo,
                 $rows,
                 $record,
+                $useWithholding,
+                $taxCents,
+                $taxAccountId,
             ) {
-                $entry = $journalService->postTwoLineJournal(
-                    $company->id,
-                    $request->user(),
-                    $validated['transaction_date'],
-                    $memo,
-                    $validated['reference'] ?? null,
-                    $total,
-                    (int) $validated['debit_chart_account_id'],
-                    (int) $validated['credit_chart_account_id'],
-                    $record->member_id,
-                    $record->category,
-                );
+                if ($useWithholding) {
+                    $grossCents = $total;
+                    $netCents = $grossCents - $taxCents;
+                    $lines = [
+                        [
+                            'chart_account_id' => (int) $validated['debit_chart_account_id'],
+                            'debit_cents' => $grossCents,
+                            'credit_cents' => 0,
+                            'description' => __('Gross interest on deposits'),
+                        ],
+                        [
+                            'chart_account_id' => (int) $validated['credit_chart_account_id'],
+                            'debit_cents' => 0,
+                            'credit_cents' => $netCents,
+                            'description' => __('Interest credited to member deposit (net of withholding)'),
+                        ],
+                        [
+                            'chart_account_id' => $taxAccountId,
+                            'debit_cents' => 0,
+                            'credit_cents' => $taxCents,
+                            'description' => __('Tax withheld on deposit interest (payable)'),
+                        ],
+                    ];
+                    $entry = $journalService->postBalancedLinesJournal(
+                        $company->id,
+                        $request->user(),
+                        $validated['transaction_date'],
+                        $memo,
+                        $validated['reference'] ?? null,
+                        $lines,
+                        $record->member_id,
+                        $record->category,
+                    );
+                } else {
+                    $entry = $journalService->postTwoLineJournal(
+                        $company->id,
+                        $request->user(),
+                        $validated['transaction_date'],
+                        $memo,
+                        $validated['reference'] ?? null,
+                        $total,
+                        (int) $validated['debit_chart_account_id'],
+                        (int) $validated['credit_chart_account_id'],
+                        $record->member_id,
+                        $record->category,
+                    );
+                }
 
                 FinancialPositionAccrual::query()
                     ->whereIn('id', $rows->pluck('id'))
@@ -2476,6 +2557,24 @@ class FinancialPositionController extends Controller
         return ChartAccount::query()
             ->where('company_id', $companyId)
             ->approvedForJournals()
+            ->orderBy('code')
+            ->get(['id', 'code', 'name'])
+            ->map(fn (ChartAccount $a) => [
+                'id' => $a->id,
+                'label' => $a->code.' — '.$a->name,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, label: string}>
+     */
+    private function liabilityChartAccountOptions(int $companyId): array
+    {
+        return ChartAccount::query()
+            ->where('company_id', $companyId)
+            ->approvedForJournals()
+            ->where('type', ChartAccount::TYPE_LIABILITY)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
             ->map(fn (ChartAccount $a) => [

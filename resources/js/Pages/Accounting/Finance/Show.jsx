@@ -6,7 +6,7 @@ import TextInput from '@/Components/TextInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { moneyFromCents } from '@/utils/money';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 const KIND_LABEL = {
     loan_monthly: 'Loan interest (monthly)',
@@ -114,6 +114,8 @@ export default function Show({
     year,
     accruals,
     savings_quarters,
+    deposit_interest_tax = null,
+    liability_account_options = [],
     accounts,
     companies,
     currentCompanyId,
@@ -737,6 +739,10 @@ export default function Show({
                                         quarter={q}
                                         year={year}
                                         accounts={accounts}
+                                        depositInterestTax={deposit_interest_tax}
+                                        liabilityAccountOptions={
+                                            liability_account_options
+                                        }
                                         isAdmin={isAdmin}
                                         currentCompanyId={currentCompanyId}
                                         onSubmit={submitQuarter}
@@ -813,6 +819,8 @@ function QuarterPostForm({
     quarter,
     year,
     accounts,
+    depositInterestTax,
+    liabilityAccountOptions = [],
     isAdmin,
     currentCompanyId,
     onSubmit,
@@ -820,15 +828,39 @@ function QuarterPostForm({
     today,
     memberFinanceOk,
 }) {
+    const defaultTaxAcct =
+        depositInterestTax?.tax_payable_chart_account_id != null
+            ? String(depositInterestTax.tax_payable_chart_account_id)
+            : '';
+
     const form = useForm({
         year: String(year),
         quarter: quarter.quarter,
         transaction_date: today,
         debit_chart_account_id: '',
         credit_chart_account_id: '',
+        tax_payable_chart_account_id: defaultTaxAcct,
         reference: '',
         company_id: isAdmin ? String(currentCompanyId ?? '') : '',
     });
+
+    const withholdingPreview = useMemo(() => {
+        const pct = Number(depositInterestTax?.withholding_tax_percent ?? 0);
+        const gross = quarter.total_cents ?? 0;
+        const taxCents =
+            pct > 0 ? Math.round((gross * pct) / 100) : 0;
+        const applies = pct > 0 && taxCents > 0;
+        return {
+            pct,
+            gross,
+            taxCents,
+            netCents: gross - taxCents,
+            applies,
+        };
+    }, [
+        depositInterestTax?.withholding_tax_percent,
+        quarter.total_cents,
+    ]);
 
     useEffect(() => {
         if (isAdmin && currentCompanyId) {
@@ -839,6 +871,12 @@ function QuarterPostForm({
     useEffect(() => {
         form.setData('year', String(year));
     }, [year]);
+
+    useEffect(() => {
+        if (defaultTaxAcct) {
+            form.setData('tax_payable_chart_account_id', defaultTaxAcct);
+        }
+    }, [defaultTaxAcct]);
 
     return (
         <div
@@ -886,6 +924,75 @@ function QuarterPostForm({
                         setData={form.setData}
                         errors={errors}
                     />
+                    {withholdingPreview.pct > 0 &&
+                    liabilityAccountOptions.length > 0 ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="sm:col-span-2">
+                                <InputLabel value="Tax payable account (withholding on deposit interest)" />
+                                <select
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                    value={form.data.tax_payable_chart_account_id}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'tax_payable_chart_account_id',
+                                            e.target.value,
+                                        )
+                                    }
+                                >
+                                    <option value="">
+                                        Use company default (if set)
+                                    </option>
+                                    {liabilityAccountOptions.map((a) => (
+                                        <option key={a.id} value={a.id}>
+                                            {a.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <InputError
+                                    message={
+                                        errors.tax_payable_chart_account_id
+                                    }
+                                    className="mt-1"
+                                />
+                            </div>
+                        </div>
+                    ) : null}
+                    {withholdingPreview.pct > 0 ? (
+                        <div className="rounded-md border border-amber-100 bg-amber-50/80 p-3 text-sm text-amber-950">
+                            <p className="font-medium">
+                                Withholding {withholdingPreview.pct}% on gross
+                                interest
+                            </p>
+                            {withholdingPreview.applies ? (
+                                <ul className="mt-2 space-y-0.5 tabular-nums">
+                                    <li>
+                                        Gross (debit line):{' '}
+                                        {moneyFromCents(
+                                            withholdingPreview.gross,
+                                        )}
+                                    </li>
+                                    <li>
+                                        Tax withheld (credit to payable):{' '}
+                                        {moneyFromCents(
+                                            withholdingPreview.taxCents,
+                                        )}
+                                    </li>
+                                    <li>
+                                        Net to member deposit (credit):{' '}
+                                        {moneyFromCents(
+                                            withholdingPreview.netCents,
+                                        )}
+                                    </li>
+                                </ul>
+                            ) : (
+                                <p className="mt-2 text-amber-900/90">
+                                    For this quarter the rounded withholding is
+                                    zero; the full amount posts in one credit
+                                    line.
+                                </p>
+                            )}
+                        </div>
+                    ) : null}
                     <Button
                         disabled={form.processing || !memberFinanceOk}
                         type="submit"

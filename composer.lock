@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d9956e36970ff14caaf78ee024ce4f1d",
+    "content-hash": "bb879c0588190698242c375ef464df9c",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -989,6 +989,54 @@
                 }
             ],
             "time": "2025-03-06T22:45:56+00:00"
+        },
+        {
+            "name": "ernilambar/nepali-date",
+            "version": "1.0.8",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ernilambar/nepali-date.git",
+                "reference": "f28ecb39294e0e5f5cd4457762004207394f1261"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ernilambar/nepali-date/zipball/f28ecb39294e0e5f5cd4457762004207394f1261",
+                "reference": "f28ecb39294e0e5f5cd4457762004207394f1261",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.6"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Nilambar\\NepaliDate\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Nilambar Sharma",
+                    "email": "nilambar@outlook.com",
+                    "homepage": "https://www.nilambar.net",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Nepali Date",
+            "homepage": "https://github.com/ernilambar/nepali-date",
+            "keywords": [
+                "bikram-sambat",
+                "date",
+                "nepali"
+            ],
+            "support": {
+                "issues": "https://github.com/ernilambar/nepali-date/issues",
+                "source": "https://github.com/ernilambar/nepali-date/tree/1.0.8"
+            },
+            "time": "2025-03-17T07:07:07+00:00"
         },
         {
             "name": "filament/actions",

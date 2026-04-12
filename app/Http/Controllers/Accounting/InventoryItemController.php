@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Accounting;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\Concerns\AssertsNoCompanyHoliday;
 use App\Http\Controllers\Concerns\ResolvesAccountingCompany;
+use App\Http\Controllers\Controller;
 use App\Models\InventoryItem;
 use App\Services\InventoryStockService;
 use Illuminate\Http\RedirectResponse;
@@ -15,6 +16,7 @@ use InvalidArgumentException;
 
 class InventoryItemController extends Controller
 {
+    use AssertsNoCompanyHoliday;
     use ResolvesAccountingCompany;
 
     public function index(Request $request): Response
@@ -196,6 +198,8 @@ class InventoryItemController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
+        $this->assertNoCompanyHoliday($company->id, (string) $validated['transaction_date']);
+
         try {
             app(InventoryStockService::class)->recordPurchase(
                 $record,
@@ -231,6 +235,8 @@ class InventoryItemController extends Controller
             'reference' => ['nullable', 'string', 'max:128'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $this->assertNoCompanyHoliday($company->id, (string) $validated['transaction_date']);
 
         try {
             app(InventoryStockService::class)->recordSale(

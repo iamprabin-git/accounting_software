@@ -1,3 +1,4 @@
+import PortalCompanyPaymentCard from '@/Components/Portal/PortalCompanyPaymentCard';
 import { Button } from '@/Components/ui/button';
 import { formatStatementAtParts } from '@/utils/dateDisplay';
 import { moneyFromCents } from '@/utils/money';
@@ -28,6 +29,7 @@ export default function Statement({
     letterhead,
     position,
     movements,
+    payment_info: paymentInfo = null,
 }) {
     const printNow = () => window.print();
 
@@ -148,6 +150,12 @@ export default function Statement({
                     </tbody>
                 </table>
                 </div>
+
+                {paymentInfo?.visible ? (
+                    <div className="mt-8 print:break-inside-avoid">
+                        <PortalCompanyPaymentCard payment_info={paymentInfo} />
+                    </div>
+                ) : null}
             </div>
         </div>
     );

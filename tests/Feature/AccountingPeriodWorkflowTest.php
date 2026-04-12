@@ -139,4 +139,39 @@ class AccountingPeriodWorkflowTest extends TestCase
         $company->refresh();
         $this->assertNull($company->journal_lock_date);
     }
+
+    public function test_month_end_close_rejects_non_last_day_of_nepali_month(): void
+    {
+        $company = Company::factory()->create();
+        $owner = User::factory()->companyOwner($company)->create();
+
+        $this->actingAs($owner)
+            ->post(route('company.period.close'), [
+                'close_lock_date' => '2026-03-31',
+                'close_reason' => 'Attempt Gregorian month end only.',
+                'close_type' => 'month_end',
+            ])
+            ->assertSessionHasErrors('close_lock_date');
+
+        $company->refresh();
+        $this->assertNull($company->journal_lock_date);
+    }
+
+    public function test_month_end_close_accepts_last_day_of_nepali_month(): void
+    {
+        $company = Company::factory()->create();
+        $owner = User::factory()->companyOwner($company)->create();
+
+        $this->actingAs($owner)
+            ->post(route('company.period.close'), [
+                'close_lock_date' => '2026-04-13',
+                'close_reason' => 'Chaitra month end (BS).',
+                'close_type' => 'month_end',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertRedirect();
+
+        $company->refresh();
+        $this->assertSame('2026-04-13', $company->journal_lock_date?->toDateString());
+    }
 }

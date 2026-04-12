@@ -21,9 +21,12 @@ use App\Http\Controllers\Accounting\WorkspaceController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Banking\CoreBankingController;
 use App\Http\Controllers\Company\AccountingPeriodController;
+use App\Http\Controllers\Company\CompanyConfigurationController;
+use App\Http\Controllers\Company\CompanyHolidayController;
 use App\Http\Controllers\Company\CompanyIntegrationController;
 use App\Http\Controllers\Company\CompanyProfileController;
 use App\Http\Controllers\Company\CompanyReviewController;
+use App\Http\Controllers\Company\CompanyWorkingDayOverrideController;
 use App\Http\Controllers\Company\CustomerMessageController;
 use App\Http\Controllers\Company\TeamUserController;
 use App\Http\Controllers\ContactController;
@@ -33,6 +36,7 @@ use App\Http\Controllers\Crm\CrmContactController;
 use App\Http\Controllers\Crm\CrmDashboardController;
 use App\Http\Controllers\Crm\CrmOpportunityController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\PlatformAdminCompanyContextController;
 use App\Http\Controllers\Portal\MemberPortalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
@@ -74,6 +78,10 @@ Route::post('/reviews', [ReviewController::class, 'store'])
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'customer.active'])
     ->name('dashboard');
+
+Route::post('/platform/company-context', [PlatformAdminCompanyContextController::class, 'update'])
+    ->middleware(['auth', 'verified', 'customer.active', 'role:admin'])
+    ->name('platform.company-context.update');
 
 Route::middleware(['auth', 'verified', 'customer.active', 'role:end_user', 'company.feature:members'])->prefix('portal')->name('portal.')->group(function () {
     Route::get('/', [MemberPortalController::class, 'home'])->name('home');
@@ -369,7 +377,21 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:company,staff', 
     Route::post('/{endUser}', [CustomerMessageController::class, 'store'])->whereNumber('endUser')->name('store');
 });
 
-Route::middleware(['auth', 'verified', 'customer.active', 'role:company'])->group(function () {
+Route::middleware(['auth', 'verified', 'customer.active', 'role:company,admin,staff'])->group(function () {
+    Route::get('/company/holidays', [CompanyHolidayController::class, 'index'])->name('company.holidays.index');
+    Route::post('/company/holidays', [CompanyHolidayController::class, 'store'])->name('company.holidays.store');
+    Route::delete('/company/holidays/{holiday}', [CompanyHolidayController::class, 'destroy'])
+        ->whereNumber('holiday')
+        ->name('company.holidays.destroy');
+    Route::post('/company/working-day-overrides', [CompanyWorkingDayOverrideController::class, 'store'])
+        ->name('company.working-day-overrides.store');
+    Route::delete('/company/working-day-overrides/{override}', [CompanyWorkingDayOverrideController::class, 'destroy'])
+        ->whereNumber('override')
+        ->name('company.working-day-overrides.destroy');
+    Route::get('/company/configuration', [CompanyConfigurationController::class, 'edit'])->name('company.configuration.edit');
+    Route::post('/company/configuration', [CompanyConfigurationController::class, 'update'])->name('company.configuration.update');
+    Route::post('/company/configuration/portable-backup.zip', [CompanyConfigurationController::class, 'downloadPortableBackupZip'])
+        ->name('company.configuration.portable-backup-zip');
     Route::get('/company/profile', [CompanyProfileController::class, 'edit'])->name('company.profile.edit');
     Route::post('/company/profile', [CompanyProfileController::class, 'update'])->name('company.profile.update');
     Route::post('/company/period/close', [AccountingPeriodController::class, 'close'])->name('company.period.close');
@@ -408,7 +430,7 @@ Route::middleware(['auth', 'verified', 'customer.active', 'role:company'])->pref
 
 Route::middleware(['auth', 'customer.active'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::match(['patch', 'post'], '/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 

@@ -116,7 +116,7 @@ class StructuredSavingsWorkflowTest extends TestCase
             [
                 'amount' => '500.00',
                 'memo' => 'Opening deposit',
-                'transaction_date' => '2026-04-04',
+                'transaction_date' => '2026-04-06',
                 'debit_chart_account_id' => $cash->id,
                 'credit_chart_account_id' => $liability->id,
                 'reference' => 'DEP-1',

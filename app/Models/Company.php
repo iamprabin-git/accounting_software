@@ -29,6 +29,7 @@ class Company extends Model
         'feature_members_enabled',
         'address',
         'phone',
+        'contact_email',
         'bank_payment_details',
         'payment_qr_path',
         'portal_show_payment_details',
@@ -41,6 +42,8 @@ class Company extends Model
         'journal_lock_updated_at',
         'next_journal_posted_number',
         'dual_approval_threshold_cents',
+        'backup_configuration',
+        'cbs_configuration',
     ];
 
     protected function casts(): array
@@ -52,7 +55,82 @@ class Company extends Model
             'journal_lock_date' => 'date',
             'journal_lock_updated_at' => 'datetime',
             'dual_approval_threshold_cents' => 'integer',
+            'backup_configuration' => 'array',
+            'cbs_configuration' => 'array',
         ];
+    }
+
+    /**
+     * @return array{
+     *     enforce_holiday_blackout: bool,
+     *     internal_notes: string,
+     *     deposit_interest_withholding_tax_percent: float,
+     *     deposit_interest_tax_payable_chart_account_id: int|null
+     * }
+     */
+    public function normalizedCbsConfiguration(): array
+    {
+        $raw = $this->cbs_configuration ?? [];
+        if (! is_array($raw)) {
+            $raw = [];
+        }
+
+        $taxPercentRaw = $raw['deposit_interest_withholding_tax_percent'] ?? null;
+        $taxPercent = 0.0;
+        if ($taxPercentRaw !== null && $taxPercentRaw !== '') {
+            $taxPercent = min(100.0, max(0.0, (float) $taxPercentRaw));
+        }
+
+        $taxAcct = $raw['deposit_interest_tax_payable_chart_account_id'] ?? null;
+        $taxAcctId = $taxAcct !== null && $taxAcct !== ''
+            ? (int) $taxAcct
+            : null;
+
+        return [
+            'enforce_holiday_blackout' => array_key_exists('enforce_holiday_blackout', $raw)
+                ? (bool) $raw['enforce_holiday_blackout']
+                : true,
+            'internal_notes' => (string) ($raw['internal_notes'] ?? ''),
+            'deposit_interest_withholding_tax_percent' => $taxPercent,
+            'deposit_interest_tax_payable_chart_account_id' => $taxAcctId,
+        ];
+    }
+
+    public function cbsHolidayBlackoutEnabled(): bool
+    {
+        return $this->normalizedCbsConfiguration()['enforce_holiday_blackout'];
+    }
+
+    /**
+     * Weekdays are working unless marked as a company holiday.
+     * Weekends are non-working unless explicitly overridden on the calendar.
+     */
+    public function isWorkingDay(string $date): bool
+    {
+        if (CompanyHoliday::query()
+            ->where('company_id', $this->id)
+            ->whereDate('holiday_date', $date)
+            ->exists()) {
+            return false;
+        }
+
+        $d = Carbon::parse($date)->startOfDay();
+
+        if ($d->isWeekend()) {
+            return CompanyWorkingDayOverride::query()
+                ->where('company_id', $this->id)
+                ->whereDate('work_date', $date)
+                ->exists();
+        }
+
+        return true;
+    }
+
+    public static function isWorkingTransactionDate(int $companyId, string $date): bool
+    {
+        $company = static::query()->find($companyId);
+
+        return $company !== null && $company->isWorkingDay($date);
     }
 
     public function isJournalDateLocked(string|CarbonInterface $date): bool
@@ -208,6 +286,53 @@ class Company extends Model
     public function members(): HasMany
     {
         return $this->hasMany(Member::class);
+    }
+
+    public function holidays(): HasMany
+    {
+        return $this->hasMany(CompanyHoliday::class);
+    }
+
+    public function workingDayOverrides(): HasMany
+    {
+        return $this->hasMany(CompanyWorkingDayOverride::class);
+    }
+
+    /**
+     * @return array{suggested_root: string, snapshots_root_folder: string, restore_instructions: string, recorded_snapshots: list<array{snapshot_date?: string, label?: string, path_or_filename?: string}>}
+     */
+    public function normalizedBackupConfiguration(): array
+    {
+        $raw = $this->backup_configuration ?? [];
+        if (! is_array($raw)) {
+            $raw = [];
+        }
+
+        $recorded = $raw['recorded_snapshots'] ?? [];
+        if (! is_array($recorded)) {
+            $recorded = [];
+        }
+
+        $cleanRecorded = [];
+        foreach ($recorded as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $cleanRecorded[] = [
+                'snapshot_date' => isset($row['snapshot_date']) ? (string) $row['snapshot_date'] : '',
+                'label' => isset($row['label']) ? (string) $row['label'] : '',
+                'path_or_filename' => isset($row['path_or_filename']) ? (string) $row['path_or_filename'] : '',
+            ];
+        }
+
+        $root = trim((string) ($raw['snapshots_root_folder'] ?? ''));
+
+        return [
+            'suggested_root' => 'storage/app/company-backups/'.$this->id,
+            'snapshots_root_folder' => $root,
+            'restore_instructions' => (string) ($raw['restore_instructions'] ?? ''),
+            'recorded_snapshots' => $cleanRecorded,
+        ];
     }
 
     public function inventoryChartAccount(): BelongsTo

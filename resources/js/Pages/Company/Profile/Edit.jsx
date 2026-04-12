@@ -1,22 +1,26 @@
 import Checkbox from '@/Components/Checkbox';
+import CompanyWorkspaceSidebar from '@/Components/CompanyWorkspaceSidebar';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { formatDisplayDateTime } from '@/utils/dateDisplay';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { useTranslation } from 'react-i18next';
 
-export default function Edit({
-    company,
-    inventoryAccountOptions = [],
-    staffLoginUrl = '',
-}) {
+export default function Edit({ company, staffLoginUrl = '' }) {
+    const page = usePage();
+    const { t } = useTranslation();
+    const canManageCompanySettings = Boolean(
+        page.props.auth?.user?.can_manage_company_settings,
+    );
+
     const { data, setData, post, processing, errors, progress, recentlySuccessful } =
         useForm({
             name: company.name,
             address: company.address || '',
             phone: company.phone || '',
+            contact_email: company.contact_email || '',
             bank_payment_details: company.bank_payment_details || '',
             payment_qr: null,
             remove_payment_qr: false,
@@ -25,29 +29,13 @@ export default function Edit({
             ),
             logo: null,
             remove_logo: false,
-            inventory_chart_account_id:
-                company.inventory_chart_account_id != null
-                    ? String(company.inventory_chart_account_id)
-                    : '',
-            journal_lock_date: company.journal_lock_date || '',
-            dual_approval_threshold:
-                company.dual_approval_threshold != null
-                    ? String(company.dual_approval_threshold)
-                    : '',
         });
-    const closePeriodForm = useForm({
-        close_lock_date: company.journal_lock_date || '',
-        close_reason: '',
-        close_type: 'custom',
-        retained_earnings_account_id: '',
-    });
-    const reopenPeriodForm = useForm({
-        reopen_to_date: '',
-        reopen_reason: '',
-    });
 
     const submit = (e) => {
         e.preventDefault();
+        if (!canManageCompanySettings) {
+            return;
+        }
         post(route('company.profile.update'), {
             forceFormData: true,
             preserveScroll: true,
@@ -63,32 +51,33 @@ export default function Edit({
     return (
         <AuthenticatedLayout
             header={
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                        Company profile
-                    </h2>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                        <h2 className="text-xl font-semibold leading-tight text-gray-800">
+                            {t('nav.companyProfile')}
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-600">
+                            {t('companyWorkspace.profilePageSubtitle')}
+                        </p>
+                    </div>
                     <div className="flex flex-wrap gap-3">
-                        <Link
-                            href={route('company.integrations.index')}
-                            className="text-sm text-indigo-600 underline hover:text-indigo-800"
-                        >
-                            Integrations &amp; API
-                        </Link>
                         <Link
                             href={route('profile.edit')}
                             className="text-sm text-gray-600 underline hover:text-gray-900"
                         >
-                            Back to your account profile
+                            Your account
                         </Link>
                     </div>
                 </div>
             }
         >
-            <Head title="Company profile" />
+            <Head title={t('nav.companyProfile')} />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-3xl sm:px-6 lg:px-8">
-                    <div className="bg-white p-4 shadow sm:rounded-lg sm:p-8">
+            <div className="py-8 sm:py-12">
+                <div className="mx-auto flex w-full min-w-0 max-w-6xl flex-col gap-6 px-4 sm:gap-8 sm:px-6 lg:flex-row lg:gap-10 lg:px-8">
+                    <CompanyWorkspaceSidebar />
+                    <div className="min-w-0 flex-1">
+                        <div className="bg-white p-4 shadow sm:rounded-lg sm:p-6 lg:p-8">
                         <section>
                             <header>
                                 <h3 className="text-lg font-medium text-gray-900">
@@ -131,11 +120,26 @@ export default function Edit({
                                 </div>
                             ) : null}
 
+                            {!canManageCompanySettings ? (
+                                <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                                    {t('companyWorkspace.readOnlySettingsHint')}
+                                </div>
+                            ) : null}
+
                             <form
                                 onSubmit={submit}
                                 className="mt-6 space-y-6"
                                 encType="multipart/form-data"
                             >
+                                <fieldset
+                                    disabled={!canManageCompanySettings}
+                                    className={
+                                        'min-w-0 space-y-6 border-0 p-0 ' +
+                                        (!canManageCompanySettings
+                                            ? 'opacity-[0.72]'
+                                            : '')
+                                    }
+                                >
                                 <div>
                                     <InputLabel htmlFor="company_name" value="Company name" />
                                     <TextInput
@@ -190,19 +194,52 @@ export default function Edit({
                                     />
                                 </div>
 
+                                <div>
+                                    <InputLabel
+                                        htmlFor="contact_email"
+                                        value="Public contact email (shown to members)"
+                                    />
+                                    <TextInput
+                                        id="contact_email"
+                                        type="email"
+                                        className="mt-1 block w-full"
+                                        value={data.contact_email}
+                                        onChange={(e) =>
+                                            setData(
+                                                'contact_email',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="e.g. support@yourcoop.org"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Used on the member portal &quot;Contact
+                                        us&quot; section. Leave empty to hide.
+                                    </p>
+                                    <InputError
+                                        className="mt-2"
+                                        message={errors.contact_email}
+                                    />
+                                </div>
+
                                 <div className="border-t border-gray-200 pt-8 mt-8">
                                     <header>
                                         <h3 className="text-lg font-medium text-gray-900">
-                                            Bank details & payment QR
+                                            Bank details &amp; payment QR (member
+                                            portal)
                                         </h3>
                                         <p className="mt-1 text-sm text-gray-600">
-                                            End users see this in the customer
-                                            portal (home, passbook, and account
-                                            pages) when you enable display below.
-                                            Add your bank name, branch, account
-                                            name and number, and optionally
-                                            upload a QR image (e.g. from your
-                                            bank or wallet app).
+                                            Shown to members when{' '}
+                                            <span className="font-medium">
+                                                Show bank details and payment QR…
+                                            </span>{' '}
+                                            is enabled below. It appears on their
+                                            dashboard, Accounts overview, Passbook,
+                                            loan/savings account pages, and
+                                            Messages. Add your bank name, branch,
+                                            account title and number, and upload a
+                                            QR image (e.g. from your bank or wallet
+                                            app) for scan-to-pay.
                                         </p>
                                     </header>
 
@@ -310,406 +347,32 @@ export default function Edit({
                                                     value="Show bank details and payment QR to end users in the portal"
                                                 />
                                                 <p className="text-xs text-gray-500 mt-1">
-                                                    When off, customers do not
-                                                    see this block even if text
-                                                    or an image is saved.
+                                                    When off, members do not see
+                                                    bank text or the QR anywhere
+                                                    in the portal (even if saved
+                                                    here).
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {inventoryAccountOptions.length > 0 && (
-                                    <div>
-                                        <InputLabel
-                                            htmlFor="inventory_chart_account_id"
-                                            value="Inventory asset account (trial balance)"
-                                        />
-                                        <select
-                                            id="inventory_chart_account_id"
-                                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            value={data.inventory_chart_account_id}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'inventory_chart_account_id',
-                                                    e.target.value,
-                                                )
-                                            }
+                                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+                                    <p>
+                                        <span className="font-medium">
+                                            Journal period lock &amp; close/reopen
+                                        </span>{' '}
+                                        — use{' '}
+                                        <Link
+                                            href={route(
+                                                'company.configuration.edit',
+                                            )}
+                                            className="font-medium text-indigo-600 underline hover:text-indigo-800"
                                         >
-                                            <option value="">
-                                                Not linked (optional)
-                                            </option>
-                                            {inventoryAccountOptions.map((opt) => (
-                                                <option
-                                                    key={opt.id}
-                                                    value={String(opt.id)}
-                                                >
-                                                    {opt.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            Stock value from inventory is shown
-                                            on the trial balance against this
-                                            account label when quantities and
-                                            unit costs are set.
-                                        </p>
-                                        <InputError
-                                            className="mt-2"
-                                            message={
-                                                errors.inventory_chart_account_id
-                                            }
-                                        />
-                                    </div>
-                                )}
-
-                                <div className="border-t border-gray-200 pt-8 mt-8">
-                                    <header>
-                                        <h3 className="text-lg font-medium text-gray-900">
-                                            Accounting controls
-                                        </h3>
-                                        <p className="mt-1 text-sm text-gray-600">
-                                            Lock journals through a closing date
-                                            to prevent back-dated approvals.
-                                        </p>
-                                    </header>
-                                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                        <div>
-                                            <InputLabel
-                                                htmlFor="journal_lock_date"
-                                                value="Journal lock date"
-                                            />
-                                            <TextInput
-                                                id="journal_lock_date"
-                                                type="date"
-                                                readOnly
-                                                className="mt-1 block w-full"
-                                                value={data.journal_lock_date}
-                                            />
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                Use close/reopen workflow below
-                                                to change period lock with
-                                                mandatory reason.
-                                            </p>
-                                        </div>
-                                        <div>
-                                            <InputLabel value="Next posted journal number" />
-                                            <TextInput
-                                                readOnly
-                                                className="mt-1 block w-full bg-gray-50"
-                                                value={String(
-                                                    company.next_journal_posted_number ??
-                                                        1,
-                                                )}
-                                            />
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                Automatically increments when
-                                                a journal is approved.
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 max-w-sm">
-                                        <InputLabel
-                                            htmlFor="dual_approval_threshold"
-                                            value="Dual approval threshold"
-                                        />
-                                        <TextInput
-                                            id="dual_approval_threshold"
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            className="mt-1 block w-full"
-                                            value={data.dual_approval_threshold}
-                                            onChange={(e) =>
-                                                setData(
-                                                    'dual_approval_threshold',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="Leave empty to disable"
-                                        />
-                                        <p className="mt-1 text-xs text-gray-500">
-                                            Journals at or above this amount
-                                            require two different approvers.
-                                        </p>
-                                        <InputError
-                                            className="mt-1"
-                                            message={
-                                                errors.dual_approval_threshold
-                                            }
-                                        />
-                                    </div>
-                                    <div className="mt-4 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
-                                        <p>
-                                            <span className="font-medium">
-                                                Current close reason:
-                                            </span>{' '}
-                                            {company.journal_lock_reason || '—'}
-                                        </p>
-                                        <p className="mt-1">
-                                            <span className="font-medium">
-                                                Last change:
-                                            </span>{' '}
-                                            {company.journal_lock_updated_at
-                                                ? formatDisplayDateTime(
-                                                      company.journal_lock_updated_at,
-                                                  )
-                                                : '—'}
-                                            {company.journal_lock_updated_by_name
-                                                ? ` by ${company.journal_lock_updated_by_name}`
-                                                : ''}
-                                        </p>
-                                    </div>
-
-                                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                        <form
-                                            onSubmit={(e) => {
-                                                e.preventDefault();
-                                                closePeriodForm.post(
-                                                    route('company.period.close'),
-                                                    { preserveScroll: true },
-                                                );
-                                            }}
-                                            className="space-y-3 rounded-md border border-amber-200 bg-amber-50 p-3"
-                                        >
-                                            <h4 className="text-sm font-semibold text-amber-900">
-                                                Close / extend close
-                                            </h4>
-                                            <InputError
-                                                className="mt-1"
-                                                message={
-                                                    closePeriodForm.errors
-                                                        .close_checklist
-                                                }
-                                            />
-                                            <div>
-                                                <InputLabel
-                                                    htmlFor="close_lock_date"
-                                                    value="Close through date"
-                                                />
-                                                <TextInput
-                                                    id="close_lock_date"
-                                                    type="date"
-                                                    className="mt-1 block w-full"
-                                                    value={
-                                                        closePeriodForm.data
-                                                            .close_lock_date
-                                                    }
-                                                    onChange={(e) =>
-                                                        closePeriodForm.setData(
-                                                            'close_lock_date',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    required
-                                                />
-                                                <InputError
-                                                    className="mt-1"
-                                                    message={
-                                                        closePeriodForm.errors
-                                                            .close_lock_date
-                                                    }
-                                                />
-                                            </div>
-                                            <div>
-                                                <InputLabel
-                                                    htmlFor="close_type"
-                                                    value="Close type"
-                                                />
-                                                <select
-                                                    id="close_type"
-                                                    className="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                    value={
-                                                        closePeriodForm.data
-                                                            .close_type
-                                                    }
-                                                    onChange={(e) =>
-                                                        closePeriodForm.setData(
-                                                            'close_type',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                >
-                                                    <option value="custom">
-                                                        Custom
-                                                    </option>
-                                                    <option value="month_end">
-                                                        Month end
-                                                    </option>
-                                                    <option value="quarter_end">
-                                                        Quarter end
-                                                    </option>
-                                                    <option value="year_end">
-                                                        Year end
-                                                    </option>
-                                                    <option value="fiscal_year_end">
-                                                        Fiscal year end (close P&amp;L)
-                                                    </option>
-                                                </select>
-                                                <InputError
-                                                    className="mt-1"
-                                                    message={
-                                                        closePeriodForm.errors
-                                                            .close_type
-                                                    }
-                                                />
-                                            </div>
-                                            <div>
-                                                <InputLabel
-                                                    htmlFor="close_reason"
-                                                    value="Reason"
-                                                />
-                                                <textarea
-                                                    id="close_reason"
-                                                    rows={3}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                    value={
-                                                        closePeriodForm.data
-                                                            .close_reason
-                                                    }
-                                                    onChange={(e) =>
-                                                        closePeriodForm.setData(
-                                                            'close_reason',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    required
-                                                />
-                                                <InputError
-                                                    className="mt-1"
-                                                    message={
-                                                        closePeriodForm.errors
-                                                            .close_reason
-                                                    }
-                                                />
-                                            </div>
-                                            {closePeriodForm.data.close_type ===
-                                            'fiscal_year_end' ? (
-                                                <div>
-                                                    <InputLabel
-                                                        htmlFor="retained_earnings_account_id"
-                                                        value="Retained earnings account ID (optional)"
-                                                    />
-                                                    <TextInput
-                                                        id="retained_earnings_account_id"
-                                                        type="number"
-                                                        className="mt-1 block w-full"
-                                                        value={
-                                                            closePeriodForm.data
-                                                                .retained_earnings_account_id
-                                                        }
-                                                        onChange={(e) =>
-                                                            closePeriodForm.setData(
-                                                                'retained_earnings_account_id',
-                                                                e.target.value,
-                                                            )
-                                                        }
-                                                        placeholder="Auto-detect by account name if empty"
-                                                    />
-                                                    <InputError
-                                                        className="mt-1"
-                                                        message={
-                                                            closePeriodForm
-                                                                .errors
-                                                                .retained_earnings_account_id
-                                                        }
-                                                    />
-                                                </div>
-                                            ) : null}
-                                            <PrimaryButton
-                                                disabled={
-                                                    closePeriodForm.processing
-                                                }
-                                            >
-                                                Save period close
-                                            </PrimaryButton>
-                                        </form>
-
-                                        <form
-                                            onSubmit={(e) => {
-                                                e.preventDefault();
-                                                reopenPeriodForm.post(
-                                                    route(
-                                                        'company.period.reopen',
-                                                    ),
-                                                    { preserveScroll: true },
-                                                );
-                                            }}
-                                            className="space-y-3 rounded-md border border-indigo-200 bg-indigo-50 p-3"
-                                        >
-                                            <h4 className="text-sm font-semibold text-indigo-900">
-                                                Reopen period
-                                            </h4>
-                                            <div>
-                                                <InputLabel
-                                                    htmlFor="reopen_to_date"
-                                                    value="Reopen to date (optional)"
-                                                />
-                                                <TextInput
-                                                    id="reopen_to_date"
-                                                    type="date"
-                                                    className="mt-1 block w-full"
-                                                    value={
-                                                        reopenPeriodForm.data
-                                                            .reopen_to_date
-                                                    }
-                                                    onChange={(e) =>
-                                                        reopenPeriodForm.setData(
-                                                            'reopen_to_date',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                <p className="mt-1 text-xs text-gray-500">
-                                                    Leave empty to fully remove
-                                                    close lock.
-                                                </p>
-                                                <InputError
-                                                    className="mt-1"
-                                                    message={
-                                                        reopenPeriodForm.errors
-                                                            .reopen_to_date
-                                                    }
-                                                />
-                                            </div>
-                                            <div>
-                                                <InputLabel
-                                                    htmlFor="reopen_reason"
-                                                    value="Reason"
-                                                />
-                                                <textarea
-                                                    id="reopen_reason"
-                                                    rows={3}
-                                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                    value={
-                                                        reopenPeriodForm.data
-                                                            .reopen_reason
-                                                    }
-                                                    onChange={(e) =>
-                                                        reopenPeriodForm.setData(
-                                                            'reopen_reason',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                    required
-                                                />
-                                                <InputError
-                                                    className="mt-1"
-                                                    message={
-                                                        reopenPeriodForm.errors
-                                                            .reopen_reason
-                                                    }
-                                                />
-                                            </div>
-                                            <PrimaryButton
-                                                disabled={
-                                                    reopenPeriodForm.processing
-                                                }
-                                            >
-                                                Reopen period
-                                            </PrimaryButton>
-                                        </form>
-                                    </div>
+                                            CBS, backup &amp; period close
+                                        </Link>
+                                        .
+                                    </p>
                                 </div>
 
                                 <div>
@@ -783,8 +446,10 @@ export default function Edit({
                                         </span>
                                     )}
                                 </div>
+                                </fieldset>
                             </form>
                         </section>
+                        </div>
                     </div>
                 </div>
             </div>

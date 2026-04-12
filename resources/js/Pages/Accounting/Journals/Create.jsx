@@ -2,6 +2,7 @@ import CompanyPicker from '@/Components/CompanyPicker';
 import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import TextInput from '@/Components/TextInput';
+import WorkDatePicker from '@/Components/WorkDatePicker';
 import { Button } from '@/Components/ui/button';
 import { Card, CardContent } from '@/Components/ui/card';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
@@ -92,22 +93,15 @@ export default function Create({ accounts, companies, currentCompanyId }) {
 
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div>
-                                <InputLabel value="Transaction date" />
-                                <TextInput
-                                    type="date"
-                                    className="mt-1 block w-full"
+                                <WorkDatePicker
+                                    id="transaction_date"
+                                    label="Transaction date"
                                     value={data.transaction_date}
-                                    onChange={(e) =>
-                                        setData(
-                                            'transaction_date',
-                                            e.target.value,
-                                        )
+                                    onChange={(iso) =>
+                                        setData('transaction_date', iso)
                                     }
+                                    error={errors.transaction_date}
                                     required
-                                />
-                                <InputError
-                                    message={errors.transaction_date}
-                                    className="mt-2"
                                 />
                             </div>
                             <div>

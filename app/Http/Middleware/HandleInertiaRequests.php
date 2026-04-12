@@ -45,9 +45,41 @@ class HandleInertiaRequests extends Middleware
             'pending_members' => 0,
             'pending_savings_approvals' => 0,
         ];
+        $platformAdminCompanies = null;
+        $companyHolidayDates = [];
+        $companyWorkingOverrideDates = [];
+        $cbsHolidayBlackoutEnabled = false;
         if ($user) {
             $resolvedCompany = Company::resolvedForWebRequest($request);
             $companyFeatures = $resolvedCompany?->featureFlagsForFrontend();
+
+            if ($resolvedCompany) {
+                $companyHolidayDates = $resolvedCompany->holidays()
+                    ->orderBy('holiday_date')
+                    ->pluck('holiday_date')
+                    ->map(fn ($d) => $d->toDateString())
+                    ->values()
+                    ->all();
+                $companyWorkingOverrideDates = $resolvedCompany->workingDayOverrides()
+                    ->orderBy('work_date')
+                    ->pluck('work_date')
+                    ->map(fn ($d) => $d->toDateString())
+                    ->values()
+                    ->all();
+                $cbsHolidayBlackoutEnabled = $resolvedCompany->cbsHolidayBlackoutEnabled();
+            }
+
+            if ($user->isAdmin()) {
+                $platformAdminCompanies = Company::query()
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn (Company $c) => [
+                        'id' => $c->id,
+                        'name' => $c->name,
+                    ])
+                    ->values()
+                    ->all();
+            }
 
             if ($resolvedCompany && $user->canEditAccounting()) {
                 $pendingMembers = Member::query()
@@ -79,12 +111,21 @@ class HandleInertiaRequests extends Middleware
             ],
             'company_features' => $companyFeatures,
             'current_company_id' => $resolvedCompany?->id,
+            'current_company' => $resolvedCompany?->only('id', 'name'),
+            'company_holiday_dates' => $companyHolidayDates,
+            'company_working_override_dates' => $companyWorkingOverrideDates,
+            'cbs_holiday_blackout_enabled' => $cbsHolidayBlackoutEnabled,
+            'platform_admin_companies' => $platformAdminCompanies,
             'approval_notifications' => $approvalNotifications,
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'phone' => $user->phone,
+                    'profile_photo_url' => $user->profilePhotoPublicUrl(),
+                    'avatar_url' => $user->avatar_url,
+                    'avatar_display_url' => $user->avatarDisplayUrl(),
                     'email_verified_at' => $user->email_verified_at,
                     'role' => $user->role,
                     'company_id' => $user->company_id,
@@ -97,6 +138,7 @@ class HandleInertiaRequests extends Middleware
                     'can_approve_chart_accounts' => $user->canApproveChartAccounts(),
                     'can_view_reports' => $user->canViewAccountingReports(),
                     'can_manage_chart_of_accounts' => $user->canManageChartOfAccounts(),
+                    'can_manage_company_settings' => $user->canManageCompanyWebSettings(),
                     'is_end_user' => $user->isEndUser(),
                 ] : null,
             ],
